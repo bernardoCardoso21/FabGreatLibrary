@@ -56,6 +56,10 @@ migrate-down: ## Rollback one Alembic migration
 seed: ## Seed the dev database (idempotent)
 	cd apps/api && $(PYTHON) -m scripts.seed
 
+.PHONY: import-cards
+import-cards: ## Import FAB card data from the-fab-cube dataset (uses CARDS_DATA_VERSION)
+	cd apps/api && $(PYTHON) -m scripts.import_cards
+
 .PHONY: test
 test: ## Run backend pytest suite
 	cd apps/api && $(PYTEST) -v

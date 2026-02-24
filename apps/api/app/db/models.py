@@ -4,11 +4,18 @@ SQLAlchemy 2.0 ORM models for FabGreat Library.
 Table summary
 ─────────────
 users           – registered accounts
-sets            – FAB product sets (e.g. "Welcome to Rathe Alpha")
-cards           – abstract card concept (name, type, class, talent)
-printings       – a specific physical print of a card inside a set
-owned_printings – user ownership: (user, printing, foil_type) → qty
+sets            – FAB product sets (e.g. "Welcome to Rathe")
+cards           – abstract card concept (name, type, class, talent, pitch)
+printings       – one row per (card, set, edition, foiling) combination
+owned_printings – user ownership: (user, printing) → qty
 wishlists       – saved filter views; free tier capped at 1 per user
+refresh_tokens  – opaque refresh tokens for JWT auth
+
+Data source alignment (Strategy B)
+───────────────────────────────────
+Matches the-fab-cube/flesh-and-blood-cards dataset structure.
+Each printing row represents one specific foiling of a card in a set edition.
+source_id fields store the dataset's stable unique_id for upsert-based imports.
 """
 
 from __future__ import annotations
@@ -84,8 +91,8 @@ class Set(Base):
     # Short code from the official API, e.g. "WTR", "ARC"
     code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    # Edition distinguishes "Alpha" from "Unlimited" printings of the same set
-    edition: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Stable unique_id from the-fab-cube dataset; used as upsert key during imports
+    source_id: Mapped[str | None] = mapped_column(String(21), nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
@@ -97,21 +104,27 @@ class Set(Base):
 # ── cards ─────────────────────────────────────────────────────────────────────
 
 class Card(Base):
-    """Abstract card concept — one row per unique card name/variant."""
+    """Abstract card concept — one row per unique card name/pitch combination."""
 
     __tablename__ = "cards"
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=_uuid
     )
+    # Stable unique_id from the-fab-cube dataset; unique so it can be the upsert key
+    source_id: Mapped[str | None] = mapped_column(
+        String(21), unique=True, nullable=True, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    # e.g. "Action", "Attack Action", "Equipment", "Hero", "Token", "Weapon"
-    card_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    # Full type text, e.g. "Ninja Action Attack"
+    card_type: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     # Hero class: "Ninja", "Wizard", "Brute", etc.  Stored as "hero_class" to
     # avoid the SQL reserved word "class".
     hero_class: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     # Talent: "Shadow", "Light", "Earth", etc.
     talent: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # Pitch value: 1 (red), 2 (yellow), 3 (blue), None for non-pitchable cards
+    pitch: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
@@ -123,10 +136,20 @@ class Card(Base):
 
 class Printing(Base):
     """
-    A specific physical printing of a card inside a set.
-    keyed by the official API's printing_id (unique string).
-    One printing may be available in multiple foil types; those variants
-    are tracked per-user in owned_printings.
+    One specific foiling of a card in a set edition.
+
+    Aligns with the-fab-cube dataset: each printing row = one (card, set, edition,
+    foiling) combination. The source dataset's unique_id is stored as printing_id
+    and is the stable upsert key.
+
+    Foiling codes (from dataset):
+      S = Standard (non-foil)
+      R = Rainbow Foil
+      C = Cold Foil
+      G = Gold Cold Foil
+
+    Edition codes:
+      A = Alpha  |  F = First  |  U = Unlimited  |  N = No specified edition
     """
 
     __tablename__ = "printings"
@@ -134,7 +157,7 @@ class Printing(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=_uuid
     )
-    # Unique identifier from the official FAB API
+    # Stable unique_id from the-fab-cube dataset
     printing_id: Mapped[str] = mapped_column(
         String(64), unique=True, nullable=False, index=True
     )
@@ -144,12 +167,19 @@ class Printing(Base):
     set_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("sets.id"), nullable=False, index=True
     )
-    # e.g. "Common", "Rare", "Majestic", "Legendary", "Fabled", "Token"
+    # Edition of this specific printing (A/F/U/N)
+    edition: Mapped[str] = mapped_column(String(4), nullable=False, default="N")
+    # Single foiling type for this printing (S/R/C/G)
+    foiling: Mapped[str] = mapped_column(String(4), nullable=False, default="S")
+    # e.g. "C", "R", "M", "L", "F", "T", "P"
     rarity: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
-    # List of foil types available for this printing, e.g. ["standard", "rainbow", "cold"]
-    foil_types: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
-    is_promo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Artist name(s) for this printing
+    artists: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    # Art variation codes, e.g. ["EA", "AA"]
+    art_variations: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tcgplayer_product_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    tcgplayer_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )
@@ -165,16 +195,19 @@ class Printing(Base):
 
 class OwnedPrinting(Base):
     """
-    Ownership record: a user owns `qty` copies of a printing in a specific foil type.
+    Ownership record: a user owns `qty` copies of a specific printing.
 
-    Invariants (enforced here + in service layer):
+    The foiling type is now encoded in the Printing row itself (Strategy B),
+    so the unique key is simply (user_id, printing_id).
+
+    Invariants:
     - qty >= 1  (qty = 0 → delete the row, not update)
-    - (user_id, printing_id, foil_type) is unique
+    - (user_id, printing_id) is unique
     """
 
     __tablename__ = "owned_printings"
     __table_args__ = (
-        UniqueConstraint("user_id", "printing_id", "foil_type", name="uq_owned_printing"),
+        UniqueConstraint("user_id", "printing_id", name="uq_owned_printing"),
         CheckConstraint("qty >= 1", name="ck_owned_printing_qty_positive"),
     )
 
@@ -187,7 +220,6 @@ class OwnedPrinting(Base):
     printing_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("printings.id"), nullable=False, index=True
     )
-    foil_type: Mapped[str] = mapped_column(String(32), nullable=False)
     qty: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
@@ -203,18 +235,6 @@ class Wishlist(Base):
     """
     A saved filter view.  Free-tier users are limited to 1 wishlist;
     this is enforced in the service layer (not a DB constraint).
-
-    filter_json shape (all fields optional):
-    {
-      "set_id": "<uuid>",
-      "rarity": "Majestic",
-      "hero_class": "Ninja",
-      "talent": "Shadow",
-      "card_type": "Action",
-      "foil_type": "rainbow",
-      "promo_only": true,
-      "q": "search term"
-    }
     """
 
     __tablename__ = "wishlists"

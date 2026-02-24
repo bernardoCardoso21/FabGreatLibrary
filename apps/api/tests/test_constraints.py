@@ -1,7 +1,7 @@
 """
 Tests for domain invariants.
 
-1. owned_printings unique constraint  (user_id, printing_id, foil_type)
+1. owned_printings unique constraint  (user_id, printing_id)
 2. Wishlist free-tier max-1 enforcement in service layer
 """
 
@@ -35,13 +35,22 @@ async def _make_card(db, name: str = "Test Card") -> Card:
     return card
 
 
-async def _make_printing(db, set_: Set, card: Card, pid: str = "TST001") -> Printing:
+async def _make_printing(
+    db,
+    set_: Set,
+    card: Card,
+    pid: str = "TST001",
+    foiling: str = "S",
+) -> Printing:
     p = Printing(
         printing_id=pid,
         card_id=card.id,
         set_id=set_.id,
-        rarity="Common",
-        foil_types=["standard"],
+        edition="N",
+        foiling=foiling,
+        rarity="C",
+        artists=[],
+        art_variations=[],
     )
     db.add(p)
     await db.flush()
@@ -52,48 +61,32 @@ async def _make_printing(db, set_: Set, card: Card, pid: str = "TST001") -> Prin
 
 class TestOwnedPrintingUniqueConstraint:
     async def test_duplicate_raises_integrity_error(self, db):
-        """Inserting (user, printing, foil_type) twice must raise IntegrityError."""
+        """Inserting (user, printing) twice must raise IntegrityError."""
         user = await _make_user(db)
         set_ = await _make_set(db)
         card = await _make_card(db)
         printing = await _make_printing(db, set_, card)
 
-        # First insert — succeeds
-        db.add(OwnedPrinting(
-            user_id=user.id,
-            printing_id=printing.id,
-            foil_type="standard",
-            qty=1,
-        ))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=printing.id, qty=1))
         await db.flush()
 
-        # Second insert — same composite key — must fail
-        db.add(OwnedPrinting(
-            user_id=user.id,
-            printing_id=printing.id,
-            foil_type="standard",
-            qty=2,
-        ))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=printing.id, qty=2))
         with pytest.raises(IntegrityError):
             await db.flush()
 
-        # After a DB error the transaction is aborted; rollback resets it so
-        # the fixture's connection.rollback() can clean up cleanly.
         await db.rollback()
 
-    async def test_different_foil_type_is_allowed(self, db):
-        """Same (user, printing) but different foil_type should be a separate row."""
+    async def test_different_printings_are_independent(self, db):
+        """Owning two different printings of the same card (e.g. S and R foil)
+        is allowed — they are separate Printing rows with distinct printing_ids."""
         user = await _make_user(db, "u2@test.local")
         set_ = await _make_set(db, "TS2")
         card = await _make_card(db, "Other Card")
-        printing = await _make_printing(db, set_, card, "TST002")
+        standard = await _make_printing(db, set_, card, "TST002-S", foiling="S")
+        rainbow = await _make_printing(db, set_, card, "TST002-R", foiling="R")
 
-        db.add(OwnedPrinting(
-            user_id=user.id, printing_id=printing.id, foil_type="standard", qty=1
-        ))
-        db.add(OwnedPrinting(
-            user_id=user.id, printing_id=printing.id, foil_type="rainbow", qty=1
-        ))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=standard.id, qty=1))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=rainbow.id, qty=1))
         await db.flush()  # should not raise
 
 

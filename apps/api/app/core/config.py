@@ -22,5 +22,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
 
+    # Card dataset (the-fab-cube/flesh-and-blood-cards release tag)
+    cards_data_version: str = "v8.1.0"
+
 
 settings = Settings()

@@ -27,21 +27,23 @@ TEST_USER_PASSWORD = "test"
 SAMPLE_SET = {
     "code": "WTR",
     "name": "Welcome to Rathe",
-    "edition": "Alpha",
 }
 
 SAMPLE_CARD = {
     "name": "Enlightened Strike",
-    "card_type": "Attack Action",
+    "card_type": "Generic Action Attack",
     "hero_class": "Generic",
     "talent": None,
+    "pitch": 2,
 }
 
 SAMPLE_PRINTING = {
-    "printing_id": "WTR110",
-    "rarity": "Common",
-    "foil_types": ["standard", "rainbow"],
-    "is_promo": False,
+    "printing_id": "WTR110-seed",
+    "rarity": "C",
+    "edition": "A",
+    "foiling": "S",
+    "artists": [],
+    "art_variations": [],
     "image_url": None,
 }
 
