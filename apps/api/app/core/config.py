@@ -14,6 +14,8 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://fab:fab@localhost:5432/fabgreat"
+    # Set to True in production when Postgres requires SSL
+    database_ssl: bool = False
 
     # JWT
     secret_key: str = "change-me-in-production"

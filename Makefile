@@ -52,6 +52,10 @@ migrate: ## Run Alembic migrations (upgrade head)
 migrate-down: ## Rollback one Alembic migration
 	cd apps/api && $(ALEMBIC) downgrade -1
 
+.PHONY: seed
+seed: ## Seed the dev database (idempotent)
+	cd apps/api && $(PYTHON) -m scripts.seed
+
 .PHONY: test
 test: ## Run backend pytest suite
 	cd apps/api && $(PYTEST) -v

@@ -1,4 +1,4 @@
-# CLAUDE.md — FabGreat Library
+  # CLAUDE.md — FabGreat Library
 
 ## Stack
 
