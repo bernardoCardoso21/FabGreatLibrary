@@ -68,6 +68,9 @@ class User(Base):
     wishlists: Mapped[list[Wishlist]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 # ── sets ──────────────────────────────────────────────────────────────────────
@@ -232,3 +235,35 @@ class Wishlist(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="wishlists")
+
+
+# ── refresh_tokens ────────────────────────────────────────────────────────────
+
+class RefreshToken(Base):
+    """
+    Opaque refresh token stored in the DB.
+    Revoked by setting revoked_at; expired rows can be purged by a cron job.
+    """
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_uuid
+    )
+    token: Mapped[str] = mapped_column(
+        String(255), unique=True, nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now
+    )
+
+    user: Mapped[User] = relationship(back_populates="refresh_tokens")

@@ -13,15 +13,11 @@ Run from apps/api/:
 
 import asyncio
 
-import bcrypt
 from sqlalchemy import select
 
+from app.core.security import hash_password
 from app.db.models import Card, Printing, Set, User
 from app.db.session import AsyncSessionLocal
-
-
-def _hash_password(plain: str) -> str:
-    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 # ── seed data ──────────────────────────────────────────────────────────────────
 
@@ -68,7 +64,7 @@ async def seed() -> None:
         if user is None:
             user = User(
                 email=TEST_USER_EMAIL,
-                hashed_password=_hash_password(TEST_USER_PASSWORD),
+                hashed_password=hash_password(TEST_USER_PASSWORD),
             )
             session.add(user)
             _log("created", f"user  {TEST_USER_EMAIL}")
