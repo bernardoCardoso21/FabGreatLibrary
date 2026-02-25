@@ -1,8 +1,28 @@
 # FabGreat Library
 
-Flesh & Blood TCG collection tracker — monorepo with a FastAPI backend and Next.js frontend.
+> A full-stack Flesh & Blood TCG collection tracker built as a personal portfolio project.
 
-Track which printings you own, browse the full card catalog, and manage your collection with single-click or bulk updates.
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?style=flat&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=flat&logo=postgresql&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=next.js&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
+
+Users can browse the full card catalog (92 sets, 4 200+ cards, 14 000+ printings), track which copies they own down to foiling and edition, and manage their collection via single-click or atomic bulk updates.
+
+**Backend — complete** · **Frontend — in progress**
+
+---
+
+## Engineering highlights
+
+- **Async throughout** — FastAPI + SQLAlchemy 2.0 async engine + asyncpg; no sync blocking anywhere in the request path.
+- **JWT + refresh token rotation** — short-lived access tokens (15 min) paired with opaque DB-stored refresh tokens; logout revokes the token server-side.
+- **Idempotent dataset import** — `make import-cards` downloads ~34 MB from a pinned GitHub release and upserts ~14 000 printings using `INSERT … ON CONFLICT DO UPDATE`. Safe to re-run at any time.
+- **Atomic bulk mutations** — `POST /collection/bulk` validates all referenced printings exist before touching any row; the entire batch succeeds or nothing changes.
+- **OpenAPI-first contract** — backend is the single source of truth; TypeScript types are generated from the OpenAPI schema, eliminating manual type duplication.
+- **Strict test isolation** — each test opens a transaction that is rolled back on teardown; `db.commit` is patched to `db.flush` so route-level commits stay within the test transaction and never touch the real DB state.
 
 ---
 
@@ -10,29 +30,29 @@ Track which printings you own, browse the full card catalog, and manage your col
 
 ```mermaid
 graph TB
-    subgraph Client["Browser"]
-        FE["Next.js 16 (App Router)\nTailwind v4 · shadcn/ui\nTanStack Query"]
+    subgraph Browser
+        FE["Next.js 16 · App Router\nTailwind v4 · shadcn/ui\nTanStack Query"]
     end
 
     subgraph API["FastAPI :8000"]
         direction TB
-        R["Routers\nauth · sets · cards\nsearch · collection"]
-        S["Services\nbusiness logic"]
+        R["Routers"]
+        S["Services — business logic"]
         M["SQLAlchemy Models"]
         R --> S --> M
     end
 
     subgraph Infra["Docker Compose"]
         PG[("PostgreSQL :5432")]
-        PGA["pgAdmin :5050\n(optional)"]
+        PGA["pgAdmin :5050 (optional)"]
     end
 
-    DS["the-fab-cube/flesh-and-blood-cards\nGitHub Release (pinned)"]
+    DS["the-fab-cube/flesh-and-blood-cards\nGitHub Release — pinned version"]
 
-    FE -- "REST / JSON" --> API
+    Browser -- "REST / JSON" --> API
     API --> PG
     PGA -.-> PG
-    DS -- "make import-cards\n(one-off / idempotent)" --> PG
+    DS -- "make import-cards\nidempotent upsert" --> PG
 ```
 
 ---
@@ -79,7 +99,6 @@ erDiagram
         json art_variations
         string image_url
         string tcgplayer_product_id
-        string tcgplayer_url
         datetime created_at
     }
     owned_printings {
@@ -95,7 +114,6 @@ erDiagram
         string name
         json filter_json
         datetime created_at
-        datetime updated_at
     }
     refresh_tokens {
         uuid id PK
@@ -114,131 +132,102 @@ erDiagram
     printings ||--o{ owned_printings : "owned via"
 ```
 
-> **Strategy B:** one `Printing` row = one specific foiling of a card in a set edition.
-> Foiling codes: `S` Standard · `R` Rainbow · `C` Cold · `G` Gold Cold.
-> Edition codes: `A` Alpha · `F` First · `U` Unlimited · `N` None.
+**Key design decision — Strategy B:** the source dataset represents each foiling of a card as a separate entry. The `printings` table mirrors this directly: one row = one specific foiling + edition combination. This keeps the ownership model simple — `(user_id, printing_id)` is the unique key with no need for a separate foil-type column.
 
 ---
 
-## API overview
+## API
 
-### Auth
+<details>
+<summary><strong>Auth</strong></summary>
+
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | POST | `/auth/register` | — | Create account, returns access + refresh tokens |
-| POST | `/auth/token` | — | Login (OAuth2 form body) |
+| POST | `/auth/token` | — | Login (OAuth2 password flow) |
 | POST | `/auth/refresh` | — | Rotate refresh token |
-| POST | `/auth/logout` | Bearer | Revoke refresh token |
+| POST | `/auth/logout` | Bearer | Revoke refresh token server-side |
 | GET | `/auth/me` | Bearer | Current user profile |
 
-### Catalog (public)
+</details>
+
+<details>
+<summary><strong>Card catalog (public)</strong></summary>
+
 | Method | Path | Description |
 |---|---|---|
-| GET | `/sets` | All sets with `printing_count`; `owned_count` when authenticated |
-| GET | `/sets/{id}/printings` | Printings in a set — filter by `q`, `rarity`, `foiling`, `edition`, `hero_class`, `talent`, `card_type` |
-| GET | `/cards` | Card list — filter by `name`, `hero_class`, `talent`, `pitch`, `set_code` |
-| GET | `/cards/{id}` | Card detail with all printings |
-| GET | `/search/printings` | Cross-set printing search — all filters above + `set_code` |
+| GET | `/sets` | All sets with `printing_count`; adds `owned_count` when authenticated |
+| GET | `/sets/{id}/printings` | Printings in a set — paginated, filterable by `q`, `rarity`, `foiling`, `edition`, `hero_class`, `talent`, `card_type` |
+| GET | `/cards` | Card list — filterable by `name`, `hero_class`, `talent`, `pitch`, `set_code` |
+| GET | `/cards/{id}` | Card detail with all printings and set info |
+| GET | `/search/printings` | Cross-set printing search with all filters above |
 
-### Collection (requires Bearer token)
+</details>
+
+<details>
+<summary><strong>Collection (requires auth)</strong></summary>
+
 | Method | Path | Description |
 |---|---|---|
 | GET | `/collection/summary` | Owned printings with full card/set detail; `?set_id=` to scope to one set |
 | POST | `/collection/items` | Upsert `{printing_id, qty}` — qty 0 deletes the row |
-| POST | `/collection/bulk` | Atomic batch — actions: `set_qty`, `increment`, `mark_playset` (qty=3), `clear` |
+| POST | `/collection/bulk` | Atomic batch with actions: `set_qty` · `increment` · `mark_playset` (qty=3) · `clear` |
 
-Interactive docs: **http://localhost:8000/docs**
+</details>
 
----
-
-## Prerequisites
-
-| Tool | Min version | Check |
-|---|---|---|
-| Python | 3.11 | `python --version` |
-| Node.js | 20 | `node --version` |
-| Docker + Docker Compose | 24 / v2 | `docker compose version` |
-| make | any | see note below |
-
-### Install `make` on Windows (one-time)
-
-```powershell
-winget install GnuWin32.Make
-# Restart Git Bash after installing so PATH is updated
-```
+Interactive docs available at **http://localhost:8000/docs** when running locally.
 
 ---
 
-## Quick start
+## Tech stack
 
-### 1. Copy env files
+| Layer | Technology |
+|---|---|
+| API framework | FastAPI 0.100+ |
+| ORM | SQLAlchemy 2.0 (fully async) |
+| Database | PostgreSQL 15 via asyncpg |
+| Migrations | Alembic |
+| Auth | python-jose (JWT) + bcrypt |
+| Validation | Pydantic v2 |
+| Frontend | Next.js 16 (App Router) |
+| Styling | Tailwind CSS v4 + shadcn/ui |
+| Data fetching | TanStack Query v5 |
+| Types | Generated from OpenAPI via openapi-typescript |
+| Testing | pytest-asyncio — 60+ tests |
+| Containerisation | Docker Compose |
+
+---
+
+## Getting started
+
+**Prerequisites:** Python 3.11+, Node.js 20+, Docker Compose v2, `make`
 
 ```bash
+# 1. Environment
 cp .env.example .env
 cp apps/web/.env.local.example apps/web/.env.local
-```
 
-Edit `.env` — at minimum change `SECRET_KEY` for anything beyond local dev.
-
-### 2. Start Postgres
-
-```bash
+# 2. Start Postgres
 make up
-```
 
-### 3. Install dependencies
+# 3. Dependencies + migrations
+make install
+make migrate
 
-```bash
-make install        # api-install + web-install
-```
+# 4. Import the full card dataset (~14 000 printings, idempotent)
+make import-cards
 
-### 4. Run migrations
-
-```bash
-make migrate        # alembic upgrade head
-```
-
-### 5. Import card data
-
-```bash
-make import-cards   # downloads ~34 MB from GitHub, upserts ~14k printings — safe to re-run
-```
-
-This populates `sets`, `cards`, and `printings` from the pinned `CARDS_DATA_VERSION` release of the [the-fab-cube/flesh-and-blood-cards](https://github.com/the-fab-cube/flesh-and-blood-cards) dataset.
-
-### 6. Start the servers
-
-```bash
-# Terminal 1
-make api-dev        # http://localhost:8000
-
-# Terminal 2
-make web-dev        # http://localhost:3000
-```
-
----
-
-## Daily dev workflow
-
-```bash
-make up          # ensure Postgres is running
-make api-dev     # terminal 1
-make web-dev     # terminal 2
+# 5. Start both servers
+make api-dev   # :8000 — hot reload
+make web-dev   # :3000 — hot reload (new terminal)
 ```
 
 ```bash
-make down        # stop all Docker services
+# Run tests (Postgres must be running)
+make test
 ```
 
----
-
-## Running tests
-
-```bash
-make test        # pytest -v (Postgres must be running)
-```
-
-Tests use a per-test transaction that is rolled back after each test — no persistent side effects.
+> **Windows:** install `make` with `winget install GnuWin32.Make` and restart Git Bash.
 
 ---
 
@@ -249,110 +238,38 @@ FabGreatLibrary/
 ├── apps/
 │   ├── api/                        FastAPI backend
 │   │   ├── app/
-│   │   │   ├── core/
-│   │   │   │   ├── config.py       Settings (pydantic-settings)
-│   │   │   │   ├── security.py     Password hashing + JWT
-│   │   │   │   └── deps.py         FastAPI dependencies
-│   │   │   ├── db/
-│   │   │   │   ├── models.py       ORM models (7 tables)
-│   │   │   │   └── session.py      Async session factory
-│   │   │   ├── routers/            One file per feature domain
+│   │   │   ├── core/               Config, JWT, FastAPI dependencies
+│   │   │   ├── db/                 ORM models (7 tables), async session
+│   │   │   ├── routers/            auth · sets · cards · search · collection
 │   │   │   ├── schemas/            Pydantic request/response models
-│   │   │   └── services/           Business logic (no SQL in routers)
+│   │   │   └── services/           Business logic — no SQL in routers
 │   │   ├── scripts/
-│   │   │   ├── import_cards.py     Card dataset importer
+│   │   │   ├── import_cards.py     Dataset importer (idempotent upsert)
 │   │   │   └── seed.py             Dev seed data
 │   │   ├── alembic/                DB migrations
-│   │   └── tests/
-│   └── web/                        Next.js 16 frontend
-│       ├── app/                    App Router pages
+│   │   └── tests/                  60+ tests, per-test transaction rollback
+│   └── web/                        Next.js 16 (App Router)
+│       ├── app/                    Pages
 │       ├── components/ui/          shadcn/ui components
-│       └── lib/                    API client + utilities
-├── packages/
-│   └── types/                      Generated TS types (from OpenAPI)
-├── infra/
-│   └── docker/
-│       └── docker-compose.yml      Postgres + optional pgAdmin
-├── .env.example
+│       └── lib/                    API client, utilities
+├── packages/types/                 Generated TypeScript types (OpenAPI)
+├── infra/docker/                   docker-compose.yml
 ├── Makefile
-└── README.md
+└── .env.example
 ```
 
 ---
 
-## Makefile targets
+## Build progress
 
-```
-make up            Start Postgres (detached)
-make up-tools      Start Postgres + pgAdmin (http://localhost:5050)
-make down          Stop all Compose services
-make logs          Tail Compose logs
-
-make api-install   Create venv + install API deps
-make api-dev       FastAPI dev server — hot-reload, :8000
-make migrate       alembic upgrade head
-make migrate-down  alembic downgrade -1
-make seed          Insert dev seed data (idempotent)
-make import-cards  Download + upsert card dataset (idempotent)
-make test          pytest -v
-
-make web-install   npm install for the frontend
-make web-dev       Next.js dev server — hot-reload, :3000
-make web-build     Next.js production build
-
-make install       api-install + web-install
-make help          Print this list
-```
-
----
-
-## Environment variables
-
-### Root `.env`
-
-| Variable | Default | Description |
+| Phase | Status | Deliverable |
 |---|---|---|
-| `POSTGRES_USER` | `fab` | Postgres username |
-| `POSTGRES_PASSWORD` | `fab` | Postgres password |
-| `POSTGRES_DB` | `fabgreat` | Database name |
-| `POSTGRES_HOST` | `localhost` | Postgres host |
-| `POSTGRES_PORT` | `5432` | Postgres port |
-| `DATABASE_URL` | `postgresql+asyncpg://fab:fab@localhost:5432/fabgreat` | Full async DSN |
-| `DATABASE_SSL` | `false` | Set `true` in production |
-| `SECRET_KEY` | `change-me-in-production` | JWT signing key — **change this** |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `15` | Access token lifetime |
-| `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Refresh token lifetime |
-| `CARDS_DATA_VERSION` | `v8.1.0` | Dataset release tag used by `import-cards` |
-| `PGADMIN_EMAIL` | `admin@fab.local` | pgAdmin login (optional) |
-| `PGADMIN_PASSWORD` | `admin` | pgAdmin password (optional) |
-| `PGADMIN_PORT` | `5050` | pgAdmin port (optional) |
-
-### `apps/web/.env.local`
-
-| Variable | Default | Description |
-|---|---|---|
-| `NEXT_PUBLIC_API_URL` | `http://localhost:8000` | API base URL used by the browser |
-
----
-
-## Optional: pgAdmin
-
-```bash
-make up-tools
-# Open http://localhost:5050
-# Login: admin@fab.local / admin
-# Add server: host=db, port=5432, user/pass from .env
-```
-
----
-
-## Phases completed
-
-| Phase | Deliverable |
-|---|---|
-| 0 | Monorepo scaffold — Docker, Makefile, FastAPI skeleton, Next.js landing page |
-| 1 | Domain models, Alembic migrations, dev seed, wishlist service |
-| 2 | JWT auth — register, login, refresh, logout, /me |
-| 3 | Card catalog read APIs — GET /cards, GET /cards/{id}, GET /sets |
-| 4 | Sets + printings + search — GET /sets (with counts), GET /sets/{id}/printings, GET /search/printings |
-| 5 | Collection mutations — GET /collection/summary, POST /collection/items, POST /collection/bulk |
+| 0 — Scaffold | ✅ | Monorepo, Docker, Makefile, FastAPI skeleton, Next.js landing page |
+| 1 — Domain | ✅ | ORM models, Alembic migrations, seed script, wishlist service |
+| 2 — Auth | ✅ | Register, login, refresh token rotation, logout, `/me` |
+| 3 — Catalog | ✅ | `GET /cards`, `GET /cards/{id}`, `GET /sets` |
+| 4 — Browse | ✅ | Set printings, cross-set search, per-field filtering |
+| 5 — Collection | ✅ backend | Summary, single upsert, atomic bulk actions |
+| 5 — Collection | 🔄 frontend | Set grid UI, click-to-increment, bulk select |
+| 6 — Wishlists | 🔜 | Saved filter views (free tier: 1 per user) |
+| 7 — Types | 🔜 | Generated TS client from OpenAPI, wired into frontend |
