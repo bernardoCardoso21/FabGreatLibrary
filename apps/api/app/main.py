@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.routers import auth as auth_router
+from app.routers import cards as cards_router
+from app.routers import search as search_router
+from app.routers import sets as sets_router
 
 app = FastAPI(
     title="FabGreat API",
@@ -19,6 +22,9 @@ app.add_middleware(
 )
 
 app.include_router(auth_router.router)
+app.include_router(sets_router.router)
+app.include_router(cards_router.router)
+app.include_router(search_router.router)
 
 
 @app.get("/health")
