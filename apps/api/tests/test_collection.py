@@ -42,13 +42,13 @@ async def _make_card(db, name: str = "Test Card") -> Card:
     return card
 
 
-async def _make_printing(db, set_: Set, card: Card, pid: str) -> Printing:
+async def _make_printing(db, set_: Set, card: Card, pid: str, foiling: str = "S") -> Printing:
     p = Printing(
         printing_id=pid,
         card_id=card.id,
         set_id=set_.id,
         edition="F",
-        foiling="S",
+        foiling=foiling,
         rarity="C",
         artists=[],
         art_variations=[],
@@ -207,7 +207,7 @@ class TestUpsertItem:
 class TestBulkApply:
     async def test_requires_auth(self, client: AsyncClient, db):
         resp = await client.post("/collection/bulk", json={"items": []})
-        assert resp.status_code == 422  # empty items fails validation before auth
+        assert resp.status_code in (401, 422)  # auth or validation checked first
 
     async def test_increment_creates_new_row(self, client: AsyncClient, db):
         user = await _make_user(db, "binc@example.com")

@@ -6,7 +6,7 @@
 |---|---|
 | Backend | FastAPI + SQLAlchemy 2.0 (async) + Alembic + Postgres |
 | Auth | JWT access token (short-lived) + opaque refresh token (DB-stored) |
-| Frontend | Next.js 16 (App Router) + TypeScript + Tailwind v4 + shadcn/ui + TanStack Query |
+| Frontend | Next.js 16 (App Router) + TypeScript + Tailwind v4 + shadcn/ui + TanStack Query v5 |
 | Types | TS client/types generated from OpenAPI spec (`packages/types/`) |
 | Card data | the-fab-cube/flesh-and-blood-cards dataset (pinned release, imported via script) |
 | Local infra | Docker Compose (Postgres + optional pgAdmin) |
@@ -53,10 +53,23 @@ apps/api/                  FastAPI backend
     test_collection.py
     test_constraints.py
 
-apps/web/                  Next.js frontend (App Router)
-  app/                     Pages
-  components/ui/           shadcn/ui components
-  lib/                     API client, utilities
+apps/web/                  Next.js 16 (App Router)
+  app/
+    page.tsx               Landing page with API health check + CTAs
+    login/page.tsx         Login form → stores token → redirects to /sets
+    register/page.tsx      Register form → stores token → redirects to /sets
+    sets/
+      page.tsx             Set grid — completion bars when authenticated
+      [id]/page.tsx        Printings table — search/filter, +1 increment, bulk actions
+    layout.tsx             Root layout wrapping Providers + Navbar
+    globals.css
+  components/
+    navbar.tsx             Nav + logout; reads auth state via useEffect (no SSR flash)
+    providers.tsx          QueryClientProvider wrapper ('use client')
+    ui/                    shadcn/ui — badge, card, button, checkbox, input
+  lib/
+    api.ts                 Typed API client (all endpoints, mirrors backend schemas)
+    auth.ts                Token helpers — getToken / setToken / clearToken (localStorage)
 
 packages/types/            Generated TS types from OpenAPI (do not edit by hand)
 infra/docker/              docker-compose.yml
@@ -86,7 +99,7 @@ infra/docker/              docker-compose.yml
 users ──< refresh_tokens
 users ──< wishlists
 users ──< owned_printings >── printings >── cards
-                                printings >── sets
+                               printings >── sets
 ```
 
 ## Card dataset (Strategy B)
@@ -115,6 +128,15 @@ users ──< owned_printings >── printings >── cards
 | POST | `/collection/items` | Bearer | Upsert single item qty |
 | POST | `/collection/bulk` | Bearer | Atomic bulk actions |
 
+## Frontend conventions
+
+- **Token storage:** `localStorage` key `fab_access_token` — read via `getToken()` in `lib/auth.ts`.
+- **Auth state in components:** always read token inside `useEffect` to avoid SSR hydration mismatches.
+- **Next.js 16 params:** dynamic route params are `Promise<{id: string}>` — unwrap with `use(params)` from React 19.
+- **Query keys:** `['sets', token]`, `['set-printings', setId, filters]`, `['collection', setId]`.
+- **After any mutation** that changes ownership: invalidate `['collection', setId]` and `['sets']` so completion bars update.
+- **shadcn components** installed: badge, card, button, checkbox, input.
+
 ## Test setup (critical notes)
 
 - Do NOT set `asyncio_default_fixture_loop_scope` in `pyproject.toml` — asyncpg binds connections to the event loop.
@@ -122,6 +144,8 @@ users ──< owned_printings >── printings >── cards
 - `client` fixture patches `db.commit = db.flush` so route-level commits stay inside the test transaction.
 - `import app.db.models` MUST come before `from app.main import app` in conftest — otherwise `app` is shadowed by the package.
 - Test emails must use real TLDs (e.g. `@example.com`); email-validator rejects `.local`.
+- Tests that insert sets must use codes that don't exist in the real dataset (avoid real codes like WTR, ARC, etc.). Use short synthetic codes like `TSTA`, `CNT`, `SP1`.
+- Tests asserting an empty DB will fail after `make import-cards` — use `isinstance(resp.json(), list)` instead of `== []`.
 
 ## OpenAPI / type generation
 

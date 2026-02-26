@@ -9,9 +9,9 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 
-Users can browse the full card catalog (92 sets, 4 200+ cards, 14 000+ printings), track which copies they own down to foiling and edition, and manage their collection via single-click or atomic bulk updates.
+Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, and manage their collection via single-click increment or atomic bulk updates.
 
-**Backend — complete** · **Frontend — in progress**
+**Full stack — backend and frontend both complete.**
 
 ---
 
@@ -19,8 +19,9 @@ Users can browse the full card catalog (92 sets, 4 200+ cards, 14 000+ printings
 
 - **Async throughout** — FastAPI + SQLAlchemy 2.0 async engine + asyncpg; no sync blocking anywhere in the request path.
 - **JWT + refresh token rotation** — short-lived access tokens (15 min) paired with opaque DB-stored refresh tokens; logout revokes the token server-side.
-- **Idempotent dataset import** — `make import-cards` downloads ~34 MB from a pinned GitHub release and upserts ~14 000 printings using `INSERT … ON CONFLICT DO UPDATE`. Safe to re-run at any time.
+- **Idempotent dataset import** — `make import-cards` downloads ~34 MB from a pinned GitHub release and upserts ~14,000 printings using `INSERT … ON CONFLICT DO UPDATE`. Safe to re-run at any time.
 - **Atomic bulk mutations** — `POST /collection/bulk` validates all referenced printings exist before touching any row; the entire batch succeeds or nothing changes.
+- **Server-state management** — TanStack Query (React Query v5) handles caching and invalidation; after any mutation the affected collection and set completion bars refresh automatically.
 - **OpenAPI-first contract** — backend is the single source of truth; TypeScript types are generated from the OpenAPI schema, eliminating manual type duplication.
 - **Strict test isolation** — each test opens a transaction that is rolled back on teardown; `db.commit` is patched to `db.flush` so route-level commits stay within the test transaction and never touch the real DB state.
 
@@ -31,7 +32,7 @@ Users can browse the full card catalog (92 sets, 4 200+ cards, 14 000+ printings
 ```mermaid
 graph TB
     subgraph Browser
-        FE["Next.js 16 · App Router\nTailwind v4 · shadcn/ui\nTanStack Query"]
+        FE["Next.js 16 · App Router\nTailwind v4 · shadcn/ui\nTanStack Query v5"]
     end
 
     subgraph API["FastAPI :8000"]
@@ -132,7 +133,7 @@ erDiagram
     printings ||--o{ owned_printings : "owned via"
 ```
 
-**Key design decision — Strategy B:** the source dataset represents each foiling of a card as a separate entry. The `printings` table mirrors this directly: one row = one specific foiling + edition combination. This keeps the ownership model simple — `(user_id, printing_id)` is the unique key with no need for a separate foil-type column.
+**Key design decision — Strategy B:** the source dataset represents each foiling of a card as a separate entry. The `printings` table mirrors this directly: one row = one specific foiling + edition combination. Ownership is tracked by `(user_id, printing_id)` with no need for a separate foil-type column.
 
 ---
 
@@ -190,10 +191,10 @@ Interactive docs available at **http://localhost:8000/docs** when running locall
 | Auth | python-jose (JWT) + bcrypt |
 | Validation | Pydantic v2 |
 | Frontend | Next.js 16 (App Router) |
-| Styling | Tailwind CSS v4 + shadcn/ui |
+| Styling | Tailwind CSS v4 + shadcn/ui v3 |
 | Data fetching | TanStack Query v5 |
 | Types | Generated from OpenAPI via openapi-typescript |
-| Testing | pytest-asyncio — 60+ tests |
+| Testing | pytest-asyncio — 75 tests |
 | Containerisation | Docker Compose |
 
 ---
@@ -247,11 +248,22 @@ FabGreatLibrary/
 │   │   │   ├── import_cards.py     Dataset importer (idempotent upsert)
 │   │   │   └── seed.py             Dev seed data
 │   │   ├── alembic/                DB migrations
-│   │   └── tests/                  60+ tests, per-test transaction rollback
+│   │   └── tests/                  75 tests, per-test transaction rollback
 │   └── web/                        Next.js 16 (App Router)
-│       ├── app/                    Pages
-│       ├── components/ui/          shadcn/ui components
-│       └── lib/                    API client, utilities
+│       ├── app/
+│       │   ├── page.tsx            Landing page
+│       │   ├── login/page.tsx      Login form
+│       │   ├── register/page.tsx   Registration form
+│       │   └── sets/
+│       │       ├── page.tsx        Set grid with completion bars
+│       │       └── [id]/page.tsx   Printings table, +1 increment, bulk actions
+│       ├── components/
+│       │   ├── navbar.tsx          Navigation + auth state
+│       │   ├── providers.tsx       TanStack Query provider
+│       │   └── ui/                 shadcn/ui components
+│       └── lib/
+│           ├── api.ts              Typed API client (all endpoints)
+│           └── auth.ts             Token helpers (localStorage)
 ├── packages/types/                 Generated TypeScript types (OpenAPI)
 ├── infra/docker/                   docker-compose.yml
 ├── Makefile
@@ -269,7 +281,6 @@ FabGreatLibrary/
 | 2 — Auth | ✅ | Register, login, refresh token rotation, logout, `/me` |
 | 3 — Catalog | ✅ | `GET /cards`, `GET /cards/{id}`, `GET /sets` |
 | 4 — Browse | ✅ | Set printings, cross-set search, per-field filtering |
-| 5 — Collection | ✅ backend | Summary, single upsert, atomic bulk actions |
-| 5 — Collection | 🔄 frontend | Set grid UI, click-to-increment, bulk select |
+| 5 — Collection | ✅ | Backend: summary, upsert, atomic bulk · Frontend: set grid, +1 increment, bulk select |
 | 6 — Wishlists | 🔜 | Saved filter views (free tier: 1 per user) |
 | 7 — Types | 🔜 | Generated TS client from OpenAPI, wired into frontend |

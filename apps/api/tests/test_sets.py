@@ -114,10 +114,10 @@ class TestGetSets:
         entry = next(s for s in resp.json() if s["code"] == "EMP")
         assert entry["printing_count"] == 0
 
-    async def test_empty_db_returns_empty_list(self, client: AsyncClient):
+    async def test_returns_list(self, client: AsyncClient):
         resp = await client.get("/sets")
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert isinstance(resp.json(), list)
 
 
 # ── GET /sets/{set_id}/printings ──────────────────────────────────────────────

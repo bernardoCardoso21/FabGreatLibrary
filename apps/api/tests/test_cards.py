@@ -16,7 +16,7 @@ from app.db.models import Card, Printing, Set
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
-async def _make_set(db, code: str = "WTR", name: str = "Welcome to Rathe") -> Set:
+async def _make_set(db, code: str = "TST", name: str = "Test Set") -> Set:
     s = Set(code=code, name=name)
     db.add(s)
     await db.flush()
@@ -57,19 +57,19 @@ async def _make_printing(db, set_: Set, card: Card, pid: str = "TST-001-S") -> P
 
 class TestGetSets:
     async def test_returns_all_sets(self, client: AsyncClient, db):
-        await _make_set(db, "WTR", "Welcome to Rathe")
-        await _make_set(db, "ARC", "Arcane Rising")
+        await _make_set(db, "TSTA", "Test Set A")
+        await _make_set(db, "TSTB", "Test Set B")
 
         resp = await client.get("/sets")
         assert resp.status_code == 200
         codes = [s["code"] for s in resp.json()]
-        assert "WTR" in codes
-        assert "ARC" in codes
+        assert "TSTA" in codes
+        assert "TSTB" in codes
 
-    async def test_empty_db_returns_empty_list(self, client: AsyncClient):
+    async def test_returns_list(self, client: AsyncClient):
         resp = await client.get("/sets")
         assert resp.status_code == 200
-        assert resp.json() == []
+        assert isinstance(resp.json(), list)
 
     async def test_set_shape(self, client: AsyncClient, db):
         await _make_set(db, "SHP", "Shape Test Set")
