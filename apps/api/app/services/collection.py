@@ -9,7 +9,7 @@ Invariants enforced here (not in DB):
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -75,6 +75,54 @@ async def upsert_item(
     session.add(op)
     await session.flush()
     return op
+
+
+async def get_missing_printings(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    set_id: uuid.UUID | None = None,
+    card_id: uuid.UUID | None = None,
+    edition: str | None = None,
+    foiling: str | None = None,
+    rarity: str | None = None,
+    artists: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """Return printings not yet owned by the user, with optional filters."""
+    owned_subq = select(OwnedPrinting.printing_id).where(OwnedPrinting.user_id == user_id)
+
+    base_stmt = select(Printing).where(~Printing.id.in_(owned_subq))
+    if set_id:
+        base_stmt = base_stmt.where(Printing.set_id == set_id)
+    if card_id:
+        base_stmt = base_stmt.where(Printing.card_id == card_id)
+    if edition:
+        base_stmt = base_stmt.where(Printing.edition == edition)
+    if foiling:
+        base_stmt = base_stmt.where(Printing.foiling == foiling)
+    if rarity:
+        base_stmt = base_stmt.where(Printing.rarity == rarity)
+    if artists:
+        base_stmt = base_stmt.where(
+            cast(Printing.artists, String).ilike(f"%{artists}%")
+        )
+
+    total = (
+        await session.execute(select(func.count()).select_from(base_stmt.subquery()))
+    ).scalar_one()
+
+    data_stmt = (
+        base_stmt
+        .options(selectinload(Printing.card), selectinload(Printing.set))
+        .order_by(Printing.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    )
+    items = list((await session.execute(data_stmt)).scalars().all())
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
 
 
 async def _apply_action(

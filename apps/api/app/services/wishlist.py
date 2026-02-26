@@ -16,6 +16,10 @@ class WishlistLimitError(Exception):
     """Raised when a free-tier user tries to create more than MAX_FREE_WISHLISTS."""
 
 
+class WishlistNotFoundError(Exception):
+    """Raised when a wishlist is not found or does not belong to the requesting user."""
+
+
 async def get_wishlist_count(session: AsyncSession, user_id: UUID) -> int:
     result = await session.execute(
         select(func.count(Wishlist.id)).where(Wishlist.user_id == user_id)
@@ -44,3 +48,18 @@ async def create_wishlist(
     session.add(wishlist)
     await session.flush()
     return wishlist
+
+
+async def list_wishlists(session: AsyncSession, user_id: UUID) -> list[Wishlist]:
+    result = await session.execute(
+        select(Wishlist).where(Wishlist.user_id == user_id).order_by(Wishlist.created_at)
+    )
+    return list(result.scalars().all())
+
+
+async def delete_wishlist(session: AsyncSession, user_id: UUID, wishlist_id: UUID) -> None:
+    wishlist = await session.get(Wishlist, wishlist_id)
+    if wishlist is None or wishlist.user_id != user_id:
+        raise WishlistNotFoundError()
+    await session.delete(wishlist)
+    await session.flush()

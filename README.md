@@ -9,7 +9,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 
-Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, and manage their collection via single-click increment or atomic bulk updates.
+Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, manage their collection via single-click increment or atomic bulk updates, and browse missing printings with saved wishlist filters.
 
 **Full stack — backend and frontend both complete.**
 
@@ -24,6 +24,7 @@ Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings
 - **Server-state management** — TanStack Query (React Query v5) handles caching and invalidation; after any mutation the affected collection and set completion bars refresh automatically.
 - **OpenAPI-first contract** — backend is the single source of truth; TypeScript types are generated from the OpenAPI schema, eliminating manual type duplication.
 - **Strict test isolation** — each test opens a transaction that is rolled back on teardown; `db.commit` is patched to `db.flush` so route-level commits stay within the test transaction and never touch the real DB state.
+- **Free-tier gate** — the wishlist limit (max 1 per user) is enforced in the service layer and surfaces as HTTP 402; deleting the existing wishlist re-opens the slot.
 
 ---
 
@@ -176,6 +177,18 @@ erDiagram
 
 </details>
 
+<details>
+<summary><strong>Missing &amp; Wishlists (requires auth)</strong></summary>
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/missing` | Paginated printings not yet owned; filterable by `set_id`, `card_id`, `edition`, `foiling`, `rarity`, `artists` |
+| POST | `/wishlists` | Save a named filter (returns 402 if one already exists — free tier limit) |
+| GET | `/wishlists` | List saved wishlists for the current user |
+| DELETE | `/wishlists/{id}` | Delete a wishlist (enables creating a new one) |
+
+</details>
+
 Interactive docs available at **http://localhost:8000/docs** when running locally.
 
 ---
@@ -194,41 +207,35 @@ Interactive docs available at **http://localhost:8000/docs** when running locall
 | Styling | Tailwind CSS v4 + shadcn/ui v3 |
 | Data fetching | TanStack Query v5 |
 | Types | Generated from OpenAPI via openapi-typescript |
-| Testing | pytest-asyncio — 75 tests |
+| Testing | pytest-asyncio — 92 tests |
 | Containerisation | Docker Compose |
 
 ---
 
 ## Getting started
 
-**Prerequisites:** Python 3.11+, Node.js 20+, Docker Compose v2, `make`
+**Prerequisites:** Python 3.11+, Node.js 20+, Docker Compose v2
+
+### Step 1 — Environment
 
 ```bash
-# 1. Environment
 cp .env.example .env
 cp apps/web/.env.local.example apps/web/.env.local
-
-# 2. Start Postgres
-make up
-
-# 3. Dependencies + migrations
-make install
-make migrate
-
-# 4. Import the full card dataset (~14 000 printings, idempotent)
-make import-cards
-
-# 5. Start both servers
-make api-dev   # :8000 — hot reload
-make web-dev   # :3000 — hot reload (new terminal)
 ```
 
-```bash
-# Run tests (Postgres must be running)
-make test
-```
+### Steps 2–5 — choose your terminal
 
-> **Windows:** install `make` with `winget install GnuWin32.Make` and restart Git Bash.
+| Step | `make` (Git Bash / Linux / macOS) | PowerShell (Windows) |
+|---|---|---|
+| Start Postgres | `make up` | `docker compose -f infra/docker/docker-compose.yml up -d` |
+| Install deps | `make install` | `cd apps/api; python -m venv .venv; .venv\Scripts\pip install -e ".[dev]"` then `cd apps/web; npm install` |
+| Run migrations | `make migrate` | `cd apps/api; .venv\Scripts\alembic upgrade head` |
+| Import card data | `make import-cards` | `cd apps/api; .venv\Scripts\python -m scripts.import_cards` |
+| Start API server | `make api-dev` | `cd apps/api; .venv\Scripts\uvicorn app.main:app --reload --port 8000` |
+| Start web server | `make web-dev` | `cd apps/web; npm run dev` |
+| Run tests | `make test` | `cd apps/api; .venv\Scripts\pytest -v` |
+
+> Card import downloads ~34 MB from a pinned GitHub release and upserts ~14,000 printings. Safe to re-run.
 
 ---
 
@@ -241,19 +248,20 @@ FabGreatLibrary/
 │   │   ├── app/
 │   │   │   ├── core/               Config, JWT, FastAPI dependencies
 │   │   │   ├── db/                 ORM models (7 tables), async session
-│   │   │   ├── routers/            auth · sets · cards · search · collection
+│   │   │   ├── routers/            auth · sets · cards · search · collection · missing · wishlist
 │   │   │   ├── schemas/            Pydantic request/response models
 │   │   │   └── services/           Business logic — no SQL in routers
 │   │   ├── scripts/
 │   │   │   ├── import_cards.py     Dataset importer (idempotent upsert)
 │   │   │   └── seed.py             Dev seed data
 │   │   ├── alembic/                DB migrations
-│   │   └── tests/                  75 tests, per-test transaction rollback
+│   │   └── tests/                  92 tests, per-test transaction rollback
 │   └── web/                        Next.js 16 (App Router)
 │       ├── app/
 │       │   ├── page.tsx            Landing page
 │       │   ├── login/page.tsx      Login form
 │       │   ├── register/page.tsx   Registration form
+│       │   ├── missing/page.tsx    Missing printings + wishlist panel
 │       │   └── sets/
 │       │       ├── page.tsx        Set grid with completion bars
 │       │       └── [id]/page.tsx   Printings table, +1 increment, bulk actions
@@ -282,5 +290,5 @@ FabGreatLibrary/
 | 3 — Catalog | ✅ | `GET /cards`, `GET /cards/{id}`, `GET /sets` |
 | 4 — Browse | ✅ | Set printings, cross-set search, per-field filtering |
 | 5 — Collection | ✅ | Backend: summary, upsert, atomic bulk · Frontend: set grid, +1 increment, bulk select |
-| 6 — Wishlists | 🔜 | Saved filter views (free tier: 1 per user) |
+| 6 — Missing / Wishlists | ✅ | `GET /missing`, wishlist CRUD (402 gate), missing page with save/load/delete |
 | 7 — Types | 🔜 | Generated TS client from OpenAPI, wired into frontend |

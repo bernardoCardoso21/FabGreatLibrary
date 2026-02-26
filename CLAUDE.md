@@ -30,20 +30,23 @@ apps/api/                  FastAPI backend
       cards.py             /cards, /cards/{id}
       search.py            /search/printings
       collection.py        /collection/summary, /collection/items, /collection/bulk
+      missing.py           /missing — unowned printings (filtered, paginated)
+      wishlist.py          /wishlists — CRUD; 402 on free-tier limit
     schemas/
       auth.py              Pydantic schemas for auth endpoints
       cards.py             SetOut, SetSummary, CardListItem, CardDetail, PrintingWithCard, Paginated*
       collection.py        OwnedPrintingOut, UpsertItemRequest, BulkRequest, ItemResult
+      wishlist.py          WishlistFilter, WishlistCreate, WishlistOut
     services/
       user.py              create_user, get_user_by_email
       auth.py              create/use/revoke refresh tokens
       cards.py             list_sets_with_counts, list_cards, list_printings, get_card, get_set
-      collection.py        get_collection_summary, upsert_item, bulk_apply
-      wishlist.py          create_wishlist (enforces free-tier limit)
+      collection.py        get_collection_summary, upsert_item, bulk_apply, get_missing_printings
+      wishlist.py          create_wishlist, list_wishlists, delete_wishlist (enforces free-tier limit)
   alembic/                 migrations
   scripts/
-    import_cards.py        Downloads + upserts the-fab-cube dataset (make import-cards)
-    seed.py                Dev seed data (make seed)
+    import_cards.py        Downloads + upserts the-fab-cube dataset
+    seed.py                Dev seed data (idempotent)
   tests/
     conftest.py            db + client fixtures (per-test rollback)
     test_auth.py
@@ -52,6 +55,8 @@ apps/api/                  FastAPI backend
     test_search.py
     test_collection.py
     test_constraints.py
+    test_wishlists.py
+    test_missing.py
 
 apps/web/                  Next.js 16 (App Router)
   app/
@@ -61,6 +66,8 @@ apps/web/                  Next.js 16 (App Router)
     sets/
       page.tsx             Set grid — completion bars when authenticated
       [id]/page.tsx        Printings table — search/filter, +1 increment, bulk actions
+    missing/
+      page.tsx             Missing printings — filters, table, save/load/delete wishlist
     layout.tsx             Root layout wrapping Providers + Navbar
     globals.css
   components/
@@ -127,14 +134,19 @@ users ──< owned_printings >── printings >── cards
 | GET | `/collection/summary` | Bearer | Owned printings with detail |
 | POST | `/collection/items` | Bearer | Upsert single item qty |
 | POST | `/collection/bulk` | Bearer | Atomic bulk actions |
+| GET | `/missing` | Bearer | Unowned printings — filtered by set_id, card_id, edition, foiling, rarity, artists |
+| POST | `/wishlists` | Bearer | Create wishlist; 402 if one already exists |
+| GET | `/wishlists` | Bearer | List user's wishlists |
+| DELETE | `/wishlists/{id}` | Bearer | Delete wishlist; 404 if not found or wrong user |
 
 ## Frontend conventions
 
 - **Token storage:** `localStorage` key `fab_access_token` — read via `getToken()` in `lib/auth.ts`.
 - **Auth state in components:** always read token inside `useEffect` to avoid SSR hydration mismatches.
 - **Next.js 16 params:** dynamic route params are `Promise<{id: string}>` — unwrap with `use(params)` from React 19.
-- **Query keys:** `['sets', token]`, `['set-printings', setId, filters]`, `['collection', setId]`.
+- **Query keys:** `['sets', token]`, `['set-printings', setId, filters]`, `['collection', setId]`, `['missing', filters]`, `['wishlists']`.
 - **After any mutation** that changes ownership: invalidate `['collection', setId]` and `['sets']` so completion bars update.
+- **Auth redirect on protected pages:** read token in `useEffect`; if null call `router.push('/login')` and return null until ready.
 - **shadcn components** installed: badge, card, button, checkbox, input.
 
 ## Test setup (critical notes)
@@ -164,17 +176,19 @@ cd packages/types && npx openapi-typescript openapi.json -o index.ts
 
 Frontend must import types from `packages/types/` — no manual type duplication.
 
-## Key Make targets
+## Key commands
 
-```
-make up            Start Postgres (detached)
-make api-dev       FastAPI on :8000 (hot-reload)
-make web-dev       Next.js on :3000 (hot-reload)
-make migrate       alembic upgrade head
-make seed          Insert dev seed data (idempotent)
-make import-cards  Download + upsert full card dataset (idempotent)
-make test          pytest -v
-```
+`make` targets work in Git Bash / Linux / macOS. On Windows PowerShell use the direct equivalents.
+
+| Task | `make` | PowerShell |
+|---|---|---|
+| Start Postgres | `make up` | `docker compose -f infra/docker/docker-compose.yml up -d` |
+| FastAPI dev server | `make api-dev` | `cd apps/api; .venv\Scripts\uvicorn app.main:app --reload --port 8000` |
+| Next.js dev server | `make web-dev` | `cd apps/web; npm run dev` |
+| Run migrations | `make migrate` | `cd apps/api; .venv\Scripts\alembic upgrade head` |
+| Seed dev data | `make seed` | `cd apps/api; .venv\Scripts\python -m scripts.seed` |
+| Import card dataset | `make import-cards` | `cd apps/api; .venv\Scripts\python -m scripts.import_cards` |
+| Run tests | `make test` | `cd apps/api; .venv\Scripts\pytest -v` |
 
 ## Environment
 

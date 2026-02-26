@@ -170,3 +170,68 @@ export function apiBulkApply(token: string, items: BulkItem[]): Promise<ItemResu
     token,
   )
 }
+
+// ── Missing ────────────────────────────────────────────────────────────────
+
+export interface MissingFilters {
+  set_id?: string
+  card_id?: string
+  edition?: string
+  foiling?: string
+  rarity?: string
+  artists?: string
+  page?: number
+  page_size?: number
+}
+
+export function apiGetMissing(token: string, filters: MissingFilters = {}): Promise<PaginatedPrintings> {
+  const params = new URLSearchParams()
+  if (filters.set_id) params.set('set_id', filters.set_id)
+  if (filters.card_id) params.set('card_id', filters.card_id)
+  if (filters.edition) params.set('edition', filters.edition)
+  if (filters.foiling) params.set('foiling', filters.foiling)
+  if (filters.rarity) params.set('rarity', filters.rarity)
+  if (filters.artists) params.set('artists', filters.artists)
+  params.set('page', String(filters.page ?? 1))
+  params.set('page_size', String(filters.page_size ?? 20))
+  return request<PaginatedPrintings>(`/missing?${params}`, {}, token)
+}
+
+// ── Wishlists ──────────────────────────────────────────────────────────────
+
+export interface WishlistFilter {
+  card_id?: string
+  set_id?: string
+  edition?: string
+  foiling?: string
+  rarity?: string
+  artists?: string
+}
+
+export interface WishlistOut {
+  id: string
+  name: string
+  filter_json: WishlistFilter
+  created_at: string
+  updated_at: string
+}
+
+export function apiGetWishlists(token: string): Promise<WishlistOut[]> {
+  return request<WishlistOut[]>('/wishlists', {}, token)
+}
+
+export function apiCreateWishlist(
+  token: string,
+  name: string,
+  filter_json: WishlistFilter,
+): Promise<WishlistOut> {
+  return request<WishlistOut>(
+    '/wishlists',
+    { method: 'POST', body: JSON.stringify({ name, filter_json }), headers: { 'Content-Type': 'application/json' } },
+    token,
+  )
+}
+
+export function apiDeleteWishlist(token: string, id: string): Promise<void> {
+  return request<void>(`/wishlists/${id}`, { method: 'DELETE' }, token)
+}
