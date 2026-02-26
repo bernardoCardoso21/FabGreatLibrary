@@ -22,9 +22,17 @@ def _printing_ids_exist_stmt(ids: list[uuid.UUID]):
     return select(Printing.id).where(Printing.id.in_(ids))
 
 
-@router.get("/summary", response_model=list[OwnedPrintingOut])
+@router.get(
+    "/summary",
+    response_model=list[OwnedPrintingOut],
+    summary="Get owned printings",
+    description=(
+        "Return all printings the authenticated user owns, with full card and set detail. "
+        "Use `set_id` to scope the results to a single set — useful for computing per-set completion."
+    ),
+)
 async def get_summary(
-    set_id: uuid.UUID | None = Query(default=None),
+    set_id: uuid.UUID | None = Query(default=None, description="Scope results to a specific set."),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -33,7 +41,17 @@ async def get_summary(
     )
 
 
-@router.post("/items", response_model=ItemResult)
+@router.post(
+    "/items",
+    response_model=ItemResult,
+    summary="Upsert item quantity",
+    description=(
+        "Set an exact quantity for a single printing. "
+        "Creates the ownership record if it does not exist. "
+        "Setting `qty` to 0 removes the printing from the collection entirely."
+    ),
+    responses={404: {"description": "Printing not found."}},
+)
 async def upsert_item(
     body: UpsertItemRequest,
     current_user: User = Depends(get_current_user),
@@ -52,7 +70,17 @@ async def upsert_item(
     return ItemResult(printing_id=body.printing_id, qty=op.qty if op else None)
 
 
-@router.post("/bulk", response_model=list[ItemResult])
+@router.post(
+    "/bulk",
+    response_model=list[ItemResult],
+    summary="Bulk update collection",
+    description=(
+        "Apply multiple collection actions atomically. "
+        "All printing IDs are validated before any change is made — "
+        "if any ID is invalid the entire request is rejected with 404."
+    ),
+    responses={404: {"description": "One or more printing IDs were not found."}},
+)
 async def bulk_apply(
     body: BulkRequest,
     current_user: User = Depends(get_current_user),

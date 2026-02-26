@@ -27,7 +27,14 @@ from app.services.user import DuplicateEmailError, create_user, get_user_by_emai
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=TokenResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new account",
+    description="Create a new user account and return a fresh access token and refresh token.",
+    responses={409: {"description": "A user with that email address already exists."}},
+)
 async def register(
     body: RegisterRequest,
     db: AsyncSession = Depends(get_db),
@@ -43,7 +50,19 @@ async def register(
     return TokenResponse(access_token=access_token, refresh_token=refresh.token)
 
 
-@router.post("/token", response_model=TokenResponse)
+@router.post(
+    "/token",
+    response_model=TokenResponse,
+    summary="Login",
+    description=(
+        "Authenticate with email and password using the OAuth2 password flow. "
+        "Returns a short-lived access token and a long-lived refresh token."
+    ),
+    responses={
+        401: {"description": "Incorrect email or password."},
+        403: {"description": "Account has been disabled."},
+    },
+)
 async def login(
     form: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
@@ -64,7 +83,16 @@ async def login(
     return TokenResponse(access_token=access_token, refresh_token=refresh.token)
 
 
-@router.post("/refresh", response_model=TokenResponse)
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Rotate refresh token",
+    description=(
+        "Exchange a valid refresh token for a new access token. "
+        "The refresh token itself is reused (not rotated) unless it has expired or been revoked."
+    ),
+    responses={401: {"description": "Refresh token is invalid, expired, or has been revoked."}},
+)
 async def refresh(
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
@@ -77,7 +105,12 @@ async def refresh(
     return TokenResponse(access_token=access_token, refresh_token=rt.token)
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout",
+    description="Revoke the supplied refresh token. The access token will continue to work until it expires naturally.",
+)
 async def logout(
     body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
@@ -87,6 +120,11 @@ async def logout(
     await db.commit()
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get(
+    "/me",
+    response_model=UserResponse,
+    summary="Current user profile",
+    description="Return the profile of the currently authenticated user.",
+)
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     return UserResponse.model_validate(current_user)

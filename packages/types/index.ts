@@ -13,7 +13,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Register */
+        /**
+         * Register a new account
+         * @description Create a new user account and return a fresh access token and refresh token.
+         */
         post: operations["register_auth_register_post"];
         delete?: never;
         options?: never;
@@ -30,7 +33,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login */
+        /**
+         * Login
+         * @description Authenticate with email and password using the OAuth2 password flow. Returns a short-lived access token and a long-lived refresh token.
+         */
         post: operations["login_auth_token_post"];
         delete?: never;
         options?: never;
@@ -47,7 +53,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Refresh */
+        /**
+         * Rotate refresh token
+         * @description Exchange a valid refresh token for a new access token. The refresh token itself is reused (not rotated) unless it has expired or been revoked.
+         */
         post: operations["refresh_auth_refresh_post"];
         delete?: never;
         options?: never;
@@ -64,7 +73,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Logout */
+        /**
+         * Logout
+         * @description Revoke the supplied refresh token. The access token will continue to work until it expires naturally.
+         */
         post: operations["logout_auth_logout_post"];
         delete?: never;
         options?: never;
@@ -79,7 +91,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Me */
+        /**
+         * Current user profile
+         * @description Return the profile of the currently authenticated user.
+         */
         get: operations["me_auth_me_get"];
         put?: never;
         post?: never;
@@ -96,7 +111,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Sets */
+        /**
+         * List all sets
+         * @description Return all sets with their total printing count. When authenticated, each set also includes the number of distinct printings the user owns (`owned_count`). Unauthenticated requests receive `owned_count: null`.
+         */
         get: operations["get_sets_sets_get"];
         put?: never;
         post?: never;
@@ -113,7 +131,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Set Printings */
+        /**
+         * List printings in a set
+         * @description Return a paginated list of printings belonging to the given set, with optional filters.
+         */
         get: operations["get_set_printings_sets__set_id__printings_get"];
         put?: never;
         post?: never;
@@ -130,7 +151,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Cards */
+        /**
+         * List cards
+         * @description Return a paginated list of cards with optional filters. Each item is a card summary without printing detail.
+         */
         get: operations["get_cards_cards_get"];
         put?: never;
         post?: never;
@@ -147,7 +171,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Card */
+        /**
+         * Get card detail
+         * @description Return full detail for a single card, including all printings across every set and edition.
+         */
         get: operations["get_card_cards__card_id__get"];
         put?: never;
         post?: never;
@@ -164,7 +191,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Search Printings */
+        /**
+         * Search printings across all sets
+         * @description Cross-set printing search with full filter support. Unlike `GET /sets/{id}/printings`, this endpoint is not scoped to a single set and can locate a specific foiling or edition of a card regardless of which set it appears in.
+         */
         get: operations["search_printings_search_printings_get"];
         put?: never;
         post?: never;
@@ -181,7 +211,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Summary */
+        /**
+         * Get owned printings
+         * @description Return all printings the authenticated user owns, with full card and set detail. Use `set_id` to scope the results to a single set — useful for computing per-set completion.
+         */
         get: operations["get_summary_collection_summary_get"];
         put?: never;
         post?: never;
@@ -200,7 +233,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Upsert Item */
+        /**
+         * Upsert item quantity
+         * @description Set an exact quantity for a single printing. Creates the ownership record if it does not exist. Setting `qty` to 0 removes the printing from the collection entirely.
+         */
         post: operations["upsert_item_collection_items_post"];
         delete?: never;
         options?: never;
@@ -217,7 +253,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Bulk Apply */
+        /**
+         * Bulk update collection
+         * @description Apply multiple collection actions atomically. All printing IDs are validated before any change is made — if any ID is invalid the entire request is rejected with 404.
+         */
         post: operations["bulk_apply_collection_bulk_post"];
         delete?: never;
         options?: never;
@@ -232,7 +271,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Missing */
+        /**
+         * List unowned printings
+         * @description Return a paginated list of printings that exist in the catalog but are not yet owned by the authenticated user. Supports the same filters as the set printings endpoint. Typically used to build a want list or identify collection gaps.
+         */
         get: operations["get_missing_missing_get"];
         put?: never;
         post?: never;
@@ -249,10 +291,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Wishlists */
+        /**
+         * List wishlists
+         * @description Return all wishlists belonging to the authenticated user, ordered by creation date.
+         */
         get: operations["list_wishlists_wishlists_get"];
         put?: never;
-        /** Create Wishlist */
+        /**
+         * Create a wishlist
+         * @description Save a named filter as a wishlist. Free-tier users may only have **one** wishlist at a time. Delete the existing wishlist before creating a new one.
+         */
         post: operations["create_wishlist_wishlists_post"];
         delete?: never;
         options?: never;
@@ -270,7 +318,10 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Wishlist */
+        /**
+         * Delete a wishlist
+         * @description Permanently delete a wishlist. This frees the slot so a new wishlist can be created.
+         */
         delete: operations["delete_wishlist_wishlists__wishlist_id__delete"];
         options?: never;
         head?: never;
@@ -332,18 +383,23 @@ export interface components {
             /**
              * Printing Id
              * Format: uuid
+             * @description ID of the printing to act on.
              */
             printing_id: string;
+            /** @description Action to perform: 'set_qty' sets an exact quantity (requires qty); 'increment' adds 1 to the current quantity; 'mark_playset' sets quantity to 3; 'clear' removes the printing from the collection. */
             action: components["schemas"]["BulkAction"];
             /**
              * Qty
-             * @description Required for set_qty action.
+             * @description Required when action is 'set_qty'. Ignored for all other actions.
              */
             qty?: number | null;
         };
         /** BulkRequest */
         BulkRequest: {
-            /** Items */
+            /**
+             * Items
+             * @description List of actions to apply atomically. All printing IDs must exist or the entire request is rejected.
+             */
             items: components["schemas"]["BulkItemRequest"][];
         };
         /** CardDetail */
@@ -371,17 +427,33 @@ export interface components {
             /**
              * Id
              * Format: uuid
+             * @description Unique card identifier.
              */
             id: string;
-            /** Name */
+            /**
+             * Name
+             * @description Card name.
+             */
             name: string;
-            /** Card Type */
+            /**
+             * Card Type
+             * @description Card type text (e.g. 'Action', 'Attack Action — Ninja').
+             */
             card_type: string;
-            /** Hero Class */
+            /**
+             * Hero Class
+             * @description Hero class this card belongs to (e.g. 'Ninja', 'Wizard'). Null for generic cards.
+             */
             hero_class: string | null;
-            /** Talent */
+            /**
+             * Talent
+             * @description Talent affinity (e.g. 'Shadow', 'Light'). Null if the card has no talent.
+             */
             talent: string | null;
-            /** Pitch */
+            /**
+             * Pitch
+             * @description Pitch value (0–3). Null for cards that cannot be pitched.
+             */
             pitch: number | null;
         };
         /** HTTPValidationError */
@@ -397,9 +469,13 @@ export interface components {
             /**
              * Printing Id
              * Format: uuid
+             * @description ID of the affected printing.
              */
             printing_id: string;
-            /** Qty */
+            /**
+             * Qty
+             * @description Resulting quantity after the operation. Null means the row was deleted (qty reached 0).
+             */
             qty: number | null;
         };
         /**
@@ -407,30 +483,58 @@ export interface components {
          * @description An owned printing with full card/set detail and qty.
          */
         OwnedPrintingOut: {
+            /** @description Full printing detail including card and set information. */
             printing: components["schemas"]["PrintingWithCard"];
-            /** Qty */
+            /**
+             * Qty
+             * @description Number of copies owned. Always >= 1 (rows with qty=0 are deleted).
+             */
             qty: number;
         };
         /** PaginatedCards */
         PaginatedCards: {
-            /** Items */
+            /**
+             * Items
+             * @description Cards on the current page.
+             */
             items: components["schemas"]["CardListItem"][];
-            /** Total */
+            /**
+             * Total
+             * @description Total number of cards matching the current filters.
+             */
             total: number;
-            /** Page */
+            /**
+             * Page
+             * @description Current page number (1-based).
+             */
             page: number;
-            /** Page Size */
+            /**
+             * Page Size
+             * @description Number of items per page.
+             */
             page_size: number;
         };
         /** PaginatedPrintings */
         PaginatedPrintings: {
-            /** Items */
+            /**
+             * Items
+             * @description Printings on the current page.
+             */
             items: components["schemas"]["PrintingWithCard"][];
-            /** Total */
+            /**
+             * Total
+             * @description Total number of printings matching the current filters.
+             */
             total: number;
-            /** Page */
+            /**
+             * Page
+             * @description Current page number (1-based).
+             */
             page: number;
-            /** Page Size */
+            /**
+             * Page Size
+             * @description Number of items per page.
+             */
             page_size: number;
         };
         /** PrintingOut */
@@ -468,32 +572,65 @@ export interface components {
             /**
              * Id
              * Format: uuid
+             * @description Unique printing identifier.
              */
             id: string;
-            /** Printing Id */
+            /**
+             * Printing Id
+             * @description Dataset-stable printing identifier (e.g. 'WTR000').
+             */
             printing_id: string;
-            /** Edition */
+            /**
+             * Edition
+             * @description Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition.
+             */
             edition: string;
-            /** Foiling */
+            /**
+             * Foiling
+             * @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold.
+             */
             foiling: string;
-            /** Rarity */
+            /**
+             * Rarity
+             * @description Rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo.
+             */
             rarity: string;
-            /** Artists */
+            /**
+             * Artists
+             * @description List of artist names credited on this printing.
+             */
             artists: unknown[];
-            /** Art Variations */
+            /**
+             * Art Variations
+             * @description List of art variation identifiers, if the card has alternate art in the same printing.
+             */
             art_variations: unknown[];
-            /** Image Url */
+            /**
+             * Image Url
+             * @description URL to the card image for this specific printing, if available.
+             */
             image_url: string | null;
-            /** Tcgplayer Product Id */
+            /**
+             * Tcgplayer Product Id
+             * @description TCGplayer product ID for this printing, if available.
+             */
             tcgplayer_product_id: string | null;
-            /** Tcgplayer Url */
+            /**
+             * Tcgplayer Url
+             * @description Direct TCGplayer listing URL for this printing, if available.
+             */
             tcgplayer_url: string | null;
+            /** @description The card this printing belongs to. */
             card: components["schemas"]["CardListItem"];
+            /** @description The set this printing belongs to. */
             set: components["schemas"]["SetOut"];
         };
         /** RefreshRequest */
         RefreshRequest: {
-            /** Refresh Token */
+            /**
+             * Refresh Token
+             * @description Opaque refresh token previously issued by this API.
+             */
             refresh_token: string;
         };
         /** RegisterRequest */
@@ -528,29 +665,52 @@ export interface components {
             /**
              * Id
              * Format: uuid
+             * @description Unique set identifier.
              */
             id: string;
-            /** Code */
+            /**
+             * Code
+             * @description Short set code (e.g. 'WTR', 'ARC').
+             */
             code: string;
-            /** Name */
+            /**
+             * Name
+             * @description Full set name (e.g. 'Welcome to Rathe').
+             */
             name: string;
-            /** Image Url */
+            /**
+             * Image Url
+             * @description URL to the set's logo or key art, if available.
+             */
             image_url: string | null;
-            /** Printing Count */
+            /**
+             * Printing Count
+             * @description Total number of distinct printings (card × edition × foiling) in this set.
+             */
             printing_count: number;
-            /** Owned Count */
+            /**
+             * Owned Count
+             * @description Number of those printings the authenticated user owns at least one copy of. Null when the request is unauthenticated.
+             */
             owned_count: number | null;
         };
         /** TokenResponse */
         TokenResponse: {
-            /** Access Token */
+            /**
+             * Access Token
+             * @description Short-lived JWT (15 min). Send as 'Authorization: Bearer <token>'.
+             */
             access_token: string;
             /**
              * Token Type
+             * @description Always 'bearer'.
              * @default bearer
              */
             token_type: string;
-            /** Refresh Token */
+            /**
+             * Refresh Token
+             * @description Opaque long-lived token. Use with POST /auth/refresh to obtain a new access token.
+             */
             refresh_token: string;
         };
         /** UpsertItemRequest */
@@ -558,11 +718,12 @@ export interface components {
             /**
              * Printing Id
              * Format: uuid
+             * @description ID of the printing to update.
              */
             printing_id: string;
             /**
              * Qty
-             * @description Quantity to set. 0 deletes the row.
+             * @description Desired quantity. Set to 0 to remove the printing from the collection.
              */
             qty: number;
         };
@@ -571,17 +732,28 @@ export interface components {
             /**
              * Id
              * Format: uuid
+             * @description Unique user identifier.
              */
             id: string;
-            /** Email */
+            /**
+             * Email
+             * @description The user's email address.
+             */
             email: string;
-            /** Is Active */
+            /**
+             * Is Active
+             * @description False if the account has been disabled by an administrator.
+             */
             is_active: boolean;
-            /** Is Admin */
+            /**
+             * Is Admin
+             * @description True if the user has administrative privileges.
+             */
             is_admin: boolean;
             /**
              * Created At
              * Format: date-time
+             * @description UTC timestamp when the account was created.
              */
             created_at: string;
         };
@@ -600,23 +772,45 @@ export interface components {
         };
         /** WishlistCreate */
         WishlistCreate: {
-            /** Name */
+            /**
+             * Name
+             * @description Display name for the wishlist.
+             */
             name: string;
+            /** @description Filter criteria that define which missing printings this wishlist tracks. */
             filter_json?: components["schemas"]["WishlistFilter"];
         };
         /** WishlistFilter */
         WishlistFilter: {
-            /** Card Id */
+            /**
+             * Card Id
+             * @description Scope to printings of a specific card.
+             */
             card_id?: string | null;
-            /** Set Id */
+            /**
+             * Set Id
+             * @description Scope to printings in a specific set.
+             */
             set_id?: string | null;
-            /** Edition */
+            /**
+             * Edition
+             * @description Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition.
+             */
             edition?: string | null;
-            /** Foiling */
+            /**
+             * Foiling
+             * @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold.
+             */
             foiling?: string | null;
-            /** Rarity */
+            /**
+             * Rarity
+             * @description Exact rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo.
+             */
             rarity?: string | null;
-            /** Artists */
+            /**
+             * Artists
+             * @description Substring match against the artists array (case-insensitive).
+             */
             artists?: string | null;
         };
         /** WishlistOut */
@@ -624,19 +818,26 @@ export interface components {
             /**
              * Id
              * Format: uuid
+             * @description Unique wishlist identifier.
              */
             id: string;
-            /** Name */
+            /**
+             * Name
+             * @description Display name for the wishlist.
+             */
             name: string;
+            /** @description Saved filter criteria. */
             filter_json: components["schemas"]["WishlistFilter"];
             /**
              * Created At
              * Format: date-time
+             * @description UTC timestamp when the wishlist was created.
              */
             created_at: string;
             /**
              * Updated At
              * Format: date-time
+             * @description UTC timestamp of the last update.
              */
             updated_at: string;
         };
@@ -671,6 +872,13 @@ export interface operations {
                     "application/json": components["schemas"]["TokenResponse"];
                 };
             };
+            /** @description A user with that email address already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -704,6 +912,20 @@ export interface operations {
                     "application/json": components["schemas"]["TokenResponse"];
                 };
             };
+            /** @description Incorrect email or password. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Account has been disabled. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -736,6 +958,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TokenResponse"];
                 };
+            };
+            /** @description Refresh token is invalid, expired, or has been revoked. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -822,21 +1051,23 @@ export interface operations {
     get_set_printings_sets__set_id__printings_get: {
         parameters: {
             query?: {
-                /** @description Search by card name */
+                /** @description Partial card name search (case-insensitive). */
                 q?: string | null;
-                /** @description Exact rarity code (C, R, M, L, F, T, P) */
+                /** @description Exact rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo. */
                 rarity?: string | null;
-                /** @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold */
+                /** @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold. */
                 foiling?: string | null;
-                /** @description Edition code: A=Alpha, F=First, U=Unlimited, N=None */
+                /** @description Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition. */
                 edition?: string | null;
-                /** @description Hero class (e.g. Ninja, Wizard) */
+                /** @description Filter by hero class (e.g. Ninja, Wizard). */
                 hero_class?: string | null;
-                /** @description Talent (e.g. Shadow, Light) */
+                /** @description Filter by talent (e.g. Shadow, Light). */
                 talent?: string | null;
-                /** @description Partial match on card type text */
+                /** @description Partial match on card type text (e.g. 'Attack Action'). */
                 card_type?: string | null;
+                /** @description Page number (1-based). */
                 page?: number;
+                /** @description Number of results per page (max 100). */
                 page_size?: number;
             };
             header?: never;
@@ -856,6 +1087,13 @@ export interface operations {
                     "application/json": components["schemas"]["PaginatedPrintings"];
                 };
             };
+            /** @description Set not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -870,12 +1108,19 @@ export interface operations {
     get_cards_cards_get: {
         parameters: {
             query?: {
+                /** @description Partial name search (case-insensitive). */
                 name?: string | null;
+                /** @description Filter by hero class (e.g. Ninja, Wizard). */
                 hero_class?: string | null;
+                /** @description Filter by talent (e.g. Shadow, Light). */
                 talent?: string | null;
+                /** @description Filter by exact pitch value (0–3). */
                 pitch?: number | null;
+                /** @description Filter to cards that appear in a specific set by set code. */
                 set_code?: string | null;
+                /** @description Page number (1-based). */
                 page?: number;
+                /** @description Number of results per page (max 100). */
                 page_size?: number;
             };
             header?: never;
@@ -924,6 +1169,13 @@ export interface operations {
                     "application/json": components["schemas"]["CardDetail"];
                 };
             };
+            /** @description Card not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -938,23 +1190,25 @@ export interface operations {
     search_printings_search_printings_get: {
         parameters: {
             query?: {
-                /** @description Search by card name */
+                /** @description Partial card name search (case-insensitive). */
                 q?: string | null;
-                /** @description Exact rarity code (C, R, M, L, F, T, P) */
+                /** @description Exact rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo. */
                 rarity?: string | null;
-                /** @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold */
+                /** @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold. */
                 foiling?: string | null;
-                /** @description Edition code: A=Alpha, F=First, U=Unlimited, N=None */
+                /** @description Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition. */
                 edition?: string | null;
-                /** @description Hero class (e.g. Ninja, Wizard) */
+                /** @description Filter by hero class (e.g. Ninja, Wizard). */
                 hero_class?: string | null;
-                /** @description Talent (e.g. Shadow, Light) */
+                /** @description Filter by talent (e.g. Shadow, Light). */
                 talent?: string | null;
-                /** @description Partial match on card type text */
+                /** @description Partial match on card type text (e.g. 'Attack Action'). */
                 card_type?: string | null;
-                /** @description Filter to a specific set by code */
+                /** @description Filter to a specific set by set code (e.g. 'WTR'). */
                 set_code?: string | null;
+                /** @description Page number (1-based). */
                 page?: number;
+                /** @description Number of results per page (max 100). */
                 page_size?: number;
             };
             header?: never;
@@ -986,6 +1240,7 @@ export interface operations {
     get_summary_collection_summary_get: {
         parameters: {
             query?: {
+                /** @description Scope results to a specific set. */
                 set_id?: string | null;
             };
             header?: never;
@@ -1036,6 +1291,13 @@ export interface operations {
                     "application/json": components["schemas"]["ItemResult"];
                 };
             };
+            /** @description Printing not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1069,6 +1331,13 @@ export interface operations {
                     "application/json": components["schemas"]["ItemResult"][];
                 };
             };
+            /** @description One or more printing IDs were not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1083,13 +1352,21 @@ export interface operations {
     get_missing_missing_get: {
         parameters: {
             query?: {
+                /** @description Scope to printings in a specific set. */
                 set_id?: string | null;
+                /** @description Scope to printings of a specific card. */
                 card_id?: string | null;
+                /** @description Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition. */
                 edition?: string | null;
+                /** @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold. */
                 foiling?: string | null;
+                /** @description Exact rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo. */
                 rarity?: string | null;
+                /** @description Substring match against the artists array (case-insensitive). */
                 artists?: string | null;
+                /** @description Page number (1-based). */
                 page?: number;
+                /** @description Number of results per page (max 100). */
                 page_size?: number;
             };
             header?: never;
@@ -1160,6 +1437,13 @@ export interface operations {
                     "application/json": components["schemas"]["WishlistOut"];
                 };
             };
+            /** @description Free-tier limit reached — delete the existing wishlist first. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -1184,6 +1468,13 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Wishlist not found or belongs to a different user. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -10,15 +10,20 @@ from app.services import cards as card_service
 router = APIRouter(tags=["cards"])
 
 
-@router.get("/cards", response_model=PaginatedCards)
+@router.get(
+    "/cards",
+    response_model=PaginatedCards,
+    summary="List cards",
+    description="Return a paginated list of cards with optional filters. Each item is a card summary without printing detail.",
+)
 async def get_cards(
-    name: str | None = Query(default=None),
-    hero_class: str | None = Query(default=None),
-    talent: str | None = Query(default=None),
-    pitch: int | None = Query(default=None),
-    set_code: str | None = Query(default=None),
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    name: str | None = Query(default=None, description="Partial name search (case-insensitive)."),
+    hero_class: str | None = Query(default=None, description="Filter by hero class (e.g. Ninja, Wizard)."),
+    talent: str | None = Query(default=None, description="Filter by talent (e.g. Shadow, Light)."),
+    pitch: int | None = Query(default=None, description="Filter by exact pitch value (0–3)."),
+    set_code: str | None = Query(default=None, description="Filter to cards that appear in a specific set by set code."),
+    page: int = Query(default=1, ge=1, description="Page number (1-based)."),
+    page_size: int = Query(default=20, ge=1, le=100, description="Number of results per page (max 100)."),
     db: AsyncSession = Depends(get_db),
 ):
     items, total = await card_service.list_cards(
@@ -34,7 +39,13 @@ async def get_cards(
     return PaginatedCards(items=items, total=total, page=page, page_size=page_size)
 
 
-@router.get("/cards/{card_id}", response_model=CardDetail)
+@router.get(
+    "/cards/{card_id}",
+    response_model=CardDetail,
+    summary="Get card detail",
+    description="Return full detail for a single card, including all printings across every set and edition.",
+    responses={404: {"description": "Card not found."}},
+)
 async def get_card(card_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     card = await card_service.get_card(db, card_id)
     if card is None:

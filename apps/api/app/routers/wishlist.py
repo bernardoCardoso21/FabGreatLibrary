@@ -13,7 +13,17 @@ from app.services.wishlist import WishlistLimitError, WishlistNotFoundError
 router = APIRouter(prefix="/wishlists", tags=["wishlists"])
 
 
-@router.post("", response_model=WishlistOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=WishlistOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a wishlist",
+    description=(
+        "Save a named filter as a wishlist. Free-tier users may only have **one** wishlist at a time. "
+        "Delete the existing wishlist before creating a new one."
+    ),
+    responses={402: {"description": "Free-tier limit reached — delete the existing wishlist first."}},
+)
 async def create_wishlist(
     body: WishlistCreate,
     current_user: User = Depends(get_current_user),
@@ -32,7 +42,12 @@ async def create_wishlist(
     return wishlist
 
 
-@router.get("", response_model=list[WishlistOut])
+@router.get(
+    "",
+    response_model=list[WishlistOut],
+    summary="List wishlists",
+    description="Return all wishlists belonging to the authenticated user, ordered by creation date.",
+)
 async def list_wishlists(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -40,7 +55,13 @@ async def list_wishlists(
     return await wishlist_service.list_wishlists(db, user_id=current_user.id)
 
 
-@router.delete("/{wishlist_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{wishlist_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a wishlist",
+    description="Permanently delete a wishlist. This frees the slot so a new wishlist can be created.",
+    responses={404: {"description": "Wishlist not found or belongs to a different user."}},
+)
 async def delete_wishlist(
     wishlist_id: uuid.UUID,
     current_user: User = Depends(get_current_user),

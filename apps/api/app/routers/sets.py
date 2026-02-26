@@ -12,7 +12,16 @@ from app.services import cards as card_service
 router = APIRouter(tags=["sets"])
 
 
-@router.get("/sets", response_model=list[SetSummary])
+@router.get(
+    "/sets",
+    response_model=list[SetSummary],
+    summary="List all sets",
+    description=(
+        "Return all sets with their total printing count. "
+        "When authenticated, each set also includes the number of distinct printings the user owns (`owned_count`). "
+        "Unauthenticated requests receive `owned_count: null`."
+    ),
+)
 async def get_sets(
     current_user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
@@ -33,18 +42,24 @@ async def get_sets(
     ]
 
 
-@router.get("/sets/{set_id}/printings", response_model=PaginatedPrintings)
+@router.get(
+    "/sets/{set_id}/printings",
+    response_model=PaginatedPrintings,
+    summary="List printings in a set",
+    description="Return a paginated list of printings belonging to the given set, with optional filters.",
+    responses={404: {"description": "Set not found."}},
+)
 async def get_set_printings(
     set_id: uuid.UUID,
-    q: str | None = Query(default=None, description="Search by card name"),
-    rarity: str | None = Query(default=None, description="Exact rarity code (C, R, M, L, F, T, P)"),
-    foiling: str | None = Query(default=None, description="Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold"),
-    edition: str | None = Query(default=None, description="Edition code: A=Alpha, F=First, U=Unlimited, N=None"),
-    hero_class: str | None = Query(default=None, description="Hero class (e.g. Ninja, Wizard)"),
-    talent: str | None = Query(default=None, description="Talent (e.g. Shadow, Light)"),
-    card_type: str | None = Query(default=None, description="Partial match on card type text"),
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
+    q: str | None = Query(default=None, description="Partial card name search (case-insensitive)."),
+    rarity: str | None = Query(default=None, description="Exact rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo."),
+    foiling: str | None = Query(default=None, description="Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold."),
+    edition: str | None = Query(default=None, description="Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition."),
+    hero_class: str | None = Query(default=None, description="Filter by hero class (e.g. Ninja, Wizard)."),
+    talent: str | None = Query(default=None, description="Filter by talent (e.g. Shadow, Light)."),
+    card_type: str | None = Query(default=None, description="Partial match on card type text (e.g. 'Attack Action')."),
+    page: int = Query(default=1, ge=1, description="Page number (1-based)."),
+    page_size: int = Query(default=20, ge=1, le=100, description="Number of results per page (max 100)."),
     db: AsyncSession = Depends(get_db),
 ):
     set_ = await card_service.get_set(db, set_id)

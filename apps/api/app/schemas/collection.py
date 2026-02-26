@@ -11,20 +11,20 @@ class OwnedPrintingOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    printing: PrintingWithCard
-    qty: int
+    printing: PrintingWithCard = Field(description="Full printing detail including card and set information.")
+    qty: int = Field(description="Number of copies owned. Always >= 1 (rows with qty=0 are deleted).")
 
 
 class UpsertItemRequest(BaseModel):
-    printing_id: uuid.UUID
-    qty: int = Field(ge=0, description="Quantity to set. 0 deletes the row.")
+    printing_id: uuid.UUID = Field(description="ID of the printing to update.")
+    qty: int = Field(ge=0, description="Desired quantity. Set to 0 to remove the printing from the collection.")
 
 
 class ItemResult(BaseModel):
     """Result of a single collection mutation. qty=None means the row was deleted."""
 
-    printing_id: uuid.UUID
-    qty: int | None
+    printing_id: uuid.UUID = Field(description="ID of the affected printing.")
+    qty: int | None = Field(description="Resulting quantity after the operation. Null means the row was deleted (qty reached 0).")
 
 
 class BulkAction(str, Enum):
@@ -35,9 +35,17 @@ class BulkAction(str, Enum):
 
 
 class BulkItemRequest(BaseModel):
-    printing_id: uuid.UUID
-    action: BulkAction
-    qty: int | None = Field(default=None, ge=0, description="Required for set_qty action.")
+    printing_id: uuid.UUID = Field(description="ID of the printing to act on.")
+    action: BulkAction = Field(
+        description=(
+            "Action to perform: "
+            "'set_qty' sets an exact quantity (requires qty); "
+            "'increment' adds 1 to the current quantity; "
+            "'mark_playset' sets quantity to 3; "
+            "'clear' removes the printing from the collection."
+        )
+    )
+    qty: int | None = Field(default=None, ge=0, description="Required when action is 'set_qty'. Ignored for all other actions.")
 
     @model_validator(mode="after")
     def qty_required_for_set_qty(self) -> "BulkItemRequest":
@@ -47,4 +55,4 @@ class BulkItemRequest(BaseModel):
 
 
 class BulkRequest(BaseModel):
-    items: list[BulkItemRequest] = Field(min_length=1)
+    items: list[BulkItemRequest] = Field(min_length=1, description="List of actions to apply atomically. All printing IDs must exist or the entire request is rejected.")

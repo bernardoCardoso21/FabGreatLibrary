@@ -12,7 +12,43 @@ from app.routers import wishlist as wishlist_router
 
 app = FastAPI(
     title="FabGreat API",
-    description="Flesh and Blood collection tracker",
+    description="""
+Flesh and Blood TCG collection tracker API.
+
+Browse the full card catalog (92 sets, 4 200+ cards, 14 000+ printings), track ownership
+down to foiling and edition, and manage saved wishlist filters.
+
+## Authentication
+
+Most catalog endpoints are public. Collection and wishlist endpoints require a **Bearer**
+token obtained from `POST /auth/token` (login) or `POST /auth/register`.
+
+Refresh tokens are opaque and stored server-side. Call `POST /auth/refresh` to rotate
+without re-entering credentials, and `POST /auth/logout` to revoke.
+
+## Pagination
+
+Paginated endpoints accept `page` (1-based) and `page_size` (max 100) query parameters
+and return `{ items, total, page, page_size }`.
+
+## Foiling codes
+
+| Code | Meaning |
+|------|---------|
+| S | Standard (non-foil) |
+| R | Rainbow foil |
+| C | Cold foil |
+| G | Gold Cold foil |
+
+## Edition codes
+
+| Code | Meaning |
+|------|---------|
+| A | Alpha |
+| F | First Edition |
+| U | Unlimited |
+| N | No specified edition |
+""",
     version="0.1.0",
 )
 
