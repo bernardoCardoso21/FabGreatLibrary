@@ -270,9 +270,9 @@ FabGreatLibrary/
 │       │   ├── providers.tsx       TanStack Query provider
 │       │   └── ui/                 shadcn/ui components
 │       └── lib/
-│           ├── api.ts              Typed API client (all endpoints)
+│           ├── api.ts              API client — re-exports generated types + 11 fetch functions
 │           └── auth.ts             Token helpers (localStorage)
-├── packages/types/                 Generated TypeScript types (OpenAPI)
+├── packages/types/                 openapi.json + generated index.ts (source of truth for TS types)
 ├── infra/docker/                   docker-compose.yml
 ├── Makefile
 └── .env.example
@@ -291,4 +291,4 @@ FabGreatLibrary/
 | 4 — Browse | ✅ | Set printings, cross-set search, per-field filtering |
 | 5 — Collection | ✅ | Backend: summary, upsert, atomic bulk · Frontend: set grid, +1 increment, bulk select |
 | 6 — Missing / Wishlists | ✅ | `GET /missing`, wishlist CRUD (402 gate), missing page with save/load/delete |
-| 7 — Types | 🔜 | Generated TS client from OpenAPI, wired into frontend |
+| 7 — Types | ✅ | openapi-typescript generates `packages/types/index.ts` from FastAPI schema; `api.ts` re-exports via `@fabgreat/types` alias — no manual type duplication |
