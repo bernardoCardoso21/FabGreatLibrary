@@ -75,7 +75,7 @@ apps/web/                  Next.js 16 (App Router)
     providers.tsx          QueryClientProvider wrapper ('use client')
     ui/                    shadcn/ui — badge, card, button, checkbox, input
   lib/
-    api.ts                 Typed API client (all endpoints, mirrors backend schemas)
+    api.ts                 Typed API client — re-exports generated types, contains 11 API functions
     auth.ts                Token helpers — getToken / setToken / clearToken (localStorage)
 
 packages/types/            Generated TS types from OpenAPI (do not edit by hand)
@@ -161,20 +161,25 @@ users ──< owned_printings >── printings >── cards
 
 ## OpenAPI / type generation
 
-The backend is the source of truth for the API contract. After any endpoint change:
+The backend is the single source of truth for the API contract. `packages/types/index.ts` is
+**committed** — no regen needed to build. After any backend schema change, regenerate:
 
 ```bash
-# Export schema
-cd apps/api && python -c "
-import json; from app.main import app
-print(json.dumps(app.openapi()))
-" > ../../packages/types/openapi.json
-
-# Generate TS types
+# bash (Git Bash / Linux / macOS)
+cd apps/api && .venv/Scripts/python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" > ../../packages/types/openapi.json
 cd packages/types && npx openapi-typescript openapi.json -o index.ts
 ```
 
-Frontend must import types from `packages/types/` — no manual type duplication.
+```powershell
+# PowerShell (Windows)
+cd apps\api; .venv\Scripts\python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" | Out-File -FilePath ..\..\packages\types\openapi.json -Encoding utf8
+cd packages\types; npx openapi-typescript openapi.json -o index.ts
+```
+
+`apps/web/lib/api.ts` re-exports all backend types via `@fabgreat/types` alias (configured in
+`apps/web/tsconfig.json`). **Do not add manual interface definitions** for backend schemas —
+they will drift. Only `PrintingFilters` and `MissingFilters` (frontend-only query param
+groupings) live in `api.ts` itself.
 
 ## Key commands
 

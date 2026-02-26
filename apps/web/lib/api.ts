@@ -1,77 +1,41 @@
+import type { components } from '@fabgreat/types'
+
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
 
-// ── Response types (mirror backend schemas) ───────────────────────────────────
+// ── Re-exports from generated types (backend is source of truth) ──────────────
 
-export interface TokenResponse {
-  access_token: string
-  token_type: string
-  refresh_token: string
+export type TokenResponse    = components['schemas']['TokenResponse']
+export type UserResponse     = components['schemas']['UserResponse']
+export type SetSummary       = components['schemas']['SetSummary']
+export type CardListItem     = components['schemas']['CardListItem']
+export type PrintingWithCard = components['schemas']['PrintingWithCard']
+export type PaginatedPrintings = components['schemas']['PaginatedPrintings']
+export type OwnedPrintingOut = components['schemas']['OwnedPrintingOut']
+export type ItemResult       = components['schemas']['ItemResult']
+export type BulkAction       = components['schemas']['BulkAction']
+export type BulkItem         = components['schemas']['BulkItemRequest']
+export type WishlistFilter   = components['schemas']['WishlistFilter']
+export type WishlistOut      = components['schemas']['WishlistOut']
+
+// ── Frontend-only query param groupings (not backend schemas) ─────────────────
+
+export interface PrintingFilters {
+  q?: string
+  foiling?: string
+  rarity?: string
+  page?: number
+  page_size?: number
 }
 
-export interface UserResponse {
-  id: string
-  email: string
-  is_active: boolean
-  is_admin: boolean
-  created_at: string
-}
-
-export interface SetSummary {
-  id: string
-  code: string
-  name: string
-  image_url: string | null
-  printing_count: number
-  owned_count: number | null
-}
-
-export interface CardListItem {
-  id: string
-  name: string
-  card_type: string
-  hero_class: string | null
-  talent: string | null
-  pitch: number | null
-}
-
-export interface PrintingWithCard {
-  id: string
-  printing_id: string
-  edition: string
-  foiling: string
-  rarity: string
-  artists: string[]
-  art_variations: string[]
-  image_url: string | null
-  tcgplayer_product_id: string | null
-  tcgplayer_url: string | null
-  card: CardListItem
-  set: { id: string; code: string; name: string; image_url: string | null }
-}
-
-export interface PaginatedPrintings {
-  items: PrintingWithCard[]
-  total: number
-  page: number
-  page_size: number
-}
-
-export interface OwnedPrintingOut {
-  printing: PrintingWithCard
-  qty: number
-}
-
-export interface ItemResult {
-  printing_id: string
-  qty: number | null
-}
-
-export type BulkAction = 'set_qty' | 'increment' | 'mark_playset' | 'clear'
-
-export interface BulkItem {
-  printing_id: string
-  action: BulkAction
-  qty?: number
+export interface MissingFilters {
+  set_id?: string
+  card_id?: string
+  edition?: string
+  foiling?: string
+  rarity?: string
+  artists?: string
+  page?: number
+  page_size?: number
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -120,14 +84,6 @@ export function apiGetSets(token?: string | null): Promise<SetSummary[]> {
   return request<SetSummary[]>('/sets', {}, token)
 }
 
-export interface PrintingFilters {
-  q?: string
-  foiling?: string
-  rarity?: string
-  page?: number
-  page_size?: number
-}
-
 export function apiGetSetPrintings(
   setId: string,
   filters: PrintingFilters = {},
@@ -173,17 +129,6 @@ export function apiBulkApply(token: string, items: BulkItem[]): Promise<ItemResu
 
 // ── Missing ────────────────────────────────────────────────────────────────
 
-export interface MissingFilters {
-  set_id?: string
-  card_id?: string
-  edition?: string
-  foiling?: string
-  rarity?: string
-  artists?: string
-  page?: number
-  page_size?: number
-}
-
 export function apiGetMissing(token: string, filters: MissingFilters = {}): Promise<PaginatedPrintings> {
   const params = new URLSearchParams()
   if (filters.set_id) params.set('set_id', filters.set_id)
@@ -198,23 +143,6 @@ export function apiGetMissing(token: string, filters: MissingFilters = {}): Prom
 }
 
 // ── Wishlists ──────────────────────────────────────────────────────────────
-
-export interface WishlistFilter {
-  card_id?: string
-  set_id?: string
-  edition?: string
-  foiling?: string
-  rarity?: string
-  artists?: string
-}
-
-export interface WishlistOut {
-  id: string
-  name: string
-  filter_json: WishlistFilter
-  created_at: string
-  updated_at: string
-}
 
 export function apiGetWishlists(token: string): Promise<WishlistOut[]> {
   return request<WishlistOut[]>('/wishlists', {}, token)

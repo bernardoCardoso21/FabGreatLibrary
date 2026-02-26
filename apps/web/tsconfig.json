@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@fabgreat/types": ["../../packages/types/index.ts"]
     }
   },
   "include": [
