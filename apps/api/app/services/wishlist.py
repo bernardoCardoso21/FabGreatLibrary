@@ -21,6 +21,15 @@ class WishlistNotFoundError(Exception):
 
 
 async def get_wishlist_count(session: AsyncSession, user_id: UUID) -> int:
+    """Return the number of wishlists the user currently owns.
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the user to count wishlists for.
+
+    Returns:
+        Integer count (0 or more).
+    """
     result = await session.execute(
         select(func.count(Wishlist.id)).where(Wishlist.user_id == user_id)
     )
@@ -33,9 +42,25 @@ async def create_wishlist(
     name: str,
     filter_json: dict,
 ) -> Wishlist:
-    """
-    Create a wishlist for user.
-    Raises WishlistLimitError if the user already has MAX_FREE_WISHLISTS.
+    """Create a new named wishlist storing a set of missing-printings filter criteria.
+
+    Enforces the free-tier limit: a user may hold at most ``MAX_FREE_WISHLISTS``
+    (currently 1) wishlists at a time. Deleting the existing wishlist re-opens
+    the slot. The limit is checked here in the service layer — the database has
+    no corresponding constraint.
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the user creating the wishlist.
+        name: Human-readable label for the wishlist.
+        filter_json: Arbitrary dict of filter criteria (set_id, foiling, rarity,
+            etc.) to be persisted and reapplied later.
+
+    Returns:
+        The newly created Wishlist (flushed but not yet committed).
+
+    Raises:
+        WishlistLimitError: If the user already has ``MAX_FREE_WISHLISTS`` wishlists.
     """
     count = await get_wishlist_count(session, user_id)
     if count >= MAX_FREE_WISHLISTS:
@@ -51,6 +76,15 @@ async def create_wishlist(
 
 
 async def list_wishlists(session: AsyncSession, user_id: UUID) -> list[Wishlist]:
+    """Return all wishlists for a user ordered by creation date (oldest first).
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the user whose wishlists to retrieve.
+
+    Returns:
+        List of Wishlist objects (may be empty).
+    """
     result = await session.execute(
         select(Wishlist).where(Wishlist.user_id == user_id).order_by(Wishlist.created_at)
     )
@@ -58,6 +92,22 @@ async def list_wishlists(session: AsyncSession, user_id: UUID) -> list[Wishlist]
 
 
 async def delete_wishlist(session: AsyncSession, user_id: UUID, wishlist_id: UUID) -> None:
+    """Delete a wishlist, verifying it belongs to the requesting user.
+
+    Ownership is checked before deletion: a wishlist belonging to another user
+    is treated identically to a non-existent one (raises ``WishlistNotFoundError``
+    in both cases) to avoid leaking wishlist existence to other users.
+    Deleting a wishlist re-opens the free-tier slot for a new one.
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the authenticated user making the request.
+        wishlist_id: UUID of the wishlist to delete.
+
+    Raises:
+        WishlistNotFoundError: If the wishlist does not exist or belongs to a
+            different user.
+    """
     wishlist = await session.get(Wishlist, wishlist_id)
     if wishlist is None or wishlist.user_id != user_id:
         raise WishlistNotFoundError()

@@ -21,7 +21,17 @@ async def get_collection_summary(
     user_id: uuid.UUID,
     set_id: uuid.UUID | None = None,
 ) -> list[OwnedPrinting]:
-    """Return all owned printings for a user, optionally filtered to one set."""
+    """Return a user's owned printings with card and set detail eager-loaded.
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the authenticated user.
+        set_id: If provided, restrict results to printings in this set.
+
+    Returns:
+        List of OwnedPrinting rows with ``printing.card`` and ``printing.set``
+        populated (no additional queries needed during serialization).
+    """
     stmt = (
         select(OwnedPrinting)
         .where(OwnedPrinting.user_id == user_id)
@@ -42,11 +52,24 @@ async def upsert_item(
     printing_id: uuid.UUID,
     qty: int,
 ) -> OwnedPrinting | None:
-    """
-    Set qty for (user, printing).
-    - qty = 0  → delete the row, return None
-    - qty > 0  → insert or update, return OwnedPrinting
-    - qty < 0  → raises ValueError
+    """Insert or update the owned quantity for a (user, printing) pair.
+
+    Business rules enforced here:
+    - ``qty = 0`` deletes the row (the DB must never hold a zero-qty record).
+    - ``qty > 0`` inserts a new row or updates the existing one.
+    - ``qty < 0`` is always rejected.
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the authenticated user.
+        printing_id: UUID of the printing being updated.
+        qty: Target quantity. 0 removes the record; positive values set it.
+
+    Returns:
+        The upserted OwnedPrinting, or None if the row was deleted (qty=0).
+
+    Raises:
+        ValueError: If qty is negative.
     """
     if qty < 0:
         raise ValueError("qty cannot be negative")
@@ -90,7 +113,28 @@ async def get_missing_printings(
     page: int = 1,
     page_size: int = 20,
 ) -> dict:
-    """Return printings not yet owned by the user, with optional filters."""
+    """Return paginated printings that the user does not yet own.
+
+    Uses a ``NOT IN`` subquery against ``owned_printings`` to exclude anything
+    the user already has. The ``artists`` filter performs a case-insensitive
+    substring search against the JSON column cast to text.
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the authenticated user; determines what is "missing".
+        set_id: Restrict to printings in this set.
+        card_id: Restrict to printings of this specific card.
+        edition: Exact edition code (``A``, ``F``, ``U``, ``N``).
+        foiling: Exact foiling code (``S``, ``R``, ``C``, ``G``).
+        rarity: Exact rarity code.
+        artists: Case-insensitive substring match against the JSON artists field.
+        page: 1-based page number.
+        page_size: Number of results per page.
+
+    Returns:
+        Dict with keys ``items`` (list of Printing), ``total`` (int),
+        ``page`` (int), and ``page_size`` (int).
+    """
     owned_subq = select(OwnedPrinting.printing_id).where(OwnedPrinting.user_id == user_id)
 
     base_stmt = select(Printing).where(~Printing.id.in_(owned_subq))
@@ -161,10 +205,27 @@ async def bulk_apply(
     user_id: uuid.UUID,
     items: list[dict],
 ) -> list[dict]:
-    """
-    Apply a list of actions atomically.
-    Each item: {printing_id, action, qty?}
-    Returns: [{printing_id, qty}] — qty=None means row was deleted.
+    """Apply a batch of collection actions atomically within the caller's transaction.
+
+    Supported actions per item:
+    - ``increment``: Add 1 to the current qty (creates the row at qty=1 if absent).
+    - ``set_qty``: Set qty to the provided value; qty=0 deletes the row.
+    - ``mark_playset``: Set qty to 3 (standard playset size).
+    - ``clear``: Delete the row (equivalent to set_qty=0).
+
+    Atomicity is guaranteed because all actions run inside the same database
+    session. The router validates that all referenced printing IDs exist before
+    calling this function; no partial rollback is needed here.
+
+    Args:
+        session: Active async database session.
+        user_id: ID of the authenticated user performing the bulk update.
+        items: List of action dicts, each with keys ``printing_id`` (UUID),
+            ``action`` (str), and optionally ``qty`` (int, required for set_qty).
+
+    Returns:
+        List of result dicts with ``printing_id`` (UUID) and ``qty`` (int or
+        None). A None qty means the row was deleted by a clear or set_qty=0.
     """
     results = []
     for item in items:

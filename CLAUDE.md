@@ -80,6 +80,13 @@ apps/web/                  Next.js 16 (App Router)
 
 packages/types/            Generated TS types from OpenAPI (do not edit by hand)
 infra/docker/              docker-compose.yml
+docs/
+  adr/
+    001-strategy-b-printings.md
+    002-monorepo.md
+    003-jwt-refresh-tokens.md
+    004-async-stack.md
+CHANGELOG.md               Keep a Changelog format — one entry per phase
 ```
 
 ## Workflow rules

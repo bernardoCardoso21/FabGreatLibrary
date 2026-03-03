@@ -1,3 +1,7 @@
+"""
+Card catalog service — read-only queries over sets, cards, and printings.
+"""
+
 import uuid
 
 from sqlalchemy import func, select
@@ -6,12 +10,26 @@ from sqlalchemy.orm import selectinload
 
 from app.db.models import Card, OwnedPrinting, Printing, Set
 
-
 async def list_sets_with_counts(
     session: AsyncSession,
     user_id: uuid.UUID | None = None,
 ) -> list[dict]:
-    """Return sets ordered by name, each with printing_count and optional owned_count."""
+    """Return all sets ordered by name, annotated with printing and ownership counts.
+
+    Two aggregate queries run after the initial set fetch: one counts all
+    printings per set, and a second (only when ``user_id`` is provided) counts
+    how many distinct printings the user owns per set. Results are merged in
+    Python to avoid a complex multi-aggregate SQL join.
+
+    Args:
+        session: Active async database session.
+        user_id: If provided, each entry includes ``owned_count`` for this user.
+            Pass None for unauthenticated callers — ``owned_count`` will be None.
+
+    Returns:
+        List of dicts with keys ``set`` (Set ORM object), ``printing_count`` (int),
+        and ``owned_count`` (int or None).
+    """
     sets = list((await session.execute(select(Set).order_by(Set.name))).scalars())
     if not sets:
         return []
@@ -51,6 +69,15 @@ async def list_sets_with_counts(
 
 
 async def get_set(session: AsyncSession, set_id: uuid.UUID) -> Set | None:
+    """Fetch a single set by primary key.
+
+    Args:
+        session: Active async database session.
+        set_id: UUID primary key of the set.
+
+    Returns:
+        The Set, or None if not found.
+    """
     return (
         await session.execute(select(Set).where(Set.id == set_id))
     ).scalar_one_or_none()
@@ -71,6 +98,31 @@ async def list_printings(
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[Printing], int]:
+    """Return a paginated list of printings with optional filters.
+
+    Joins ``Card`` and ``Set`` to support cross-table filtering. Eager-loads
+    ``printing.card`` and ``printing.set`` on the result page to avoid N+1
+    queries in serialization.
+
+    Args:
+        session: Active async database session.
+        set_id: Restrict to printings belonging to this set UUID.
+        q: Case-insensitive substring match against card name.
+        rarity: Exact rarity code (e.g. ``"T"`` for token, ``"L"`` for legendary).
+        foiling: Exact foiling code — ``S`` Standard, ``R`` Rainbow, ``C`` Cold,
+            ``G`` Gold Cold.
+        edition: Exact edition code — ``A`` Alpha, ``F`` First, ``U`` Unlimited,
+            ``N`` No edition.
+        hero_class: Exact hero class string (e.g. ``"Warrior"``).
+        talent: Exact talent string (e.g. ``"Light"``).
+        card_type: Case-insensitive substring match against card type.
+        set_code: Restrict to printings whose set has this code (e.g. ``"WTR"``).
+        page: 1-based page number.
+        page_size: Number of results per page.
+
+    Returns:
+        Tuple of (printings on this page, total matching count).
+    """
     stmt = select(Printing).join(Printing.card).join(Printing.set)
 
     if set_id is not None:
@@ -108,6 +160,14 @@ async def list_printings(
 
 
 async def list_sets(session: AsyncSession) -> list[Set]:
+    """Return all sets ordered alphabetically by name.
+
+    Args:
+        session: Active async database session.
+
+    Returns:
+        List of all Set objects.
+    """
     result = await session.execute(select(Set).order_by(Set.name))
     return list(result.scalars().all())
 
@@ -123,6 +183,24 @@ async def list_cards(
     page: int = 1,
     page_size: int = 20,
 ) -> tuple[list[Card], int]:
+    """Return a paginated list of cards with optional filters.
+
+    When ``set_code`` is provided, the query uses an ``IN`` subquery against
+    ``printings`` to find cards that have at least one printing in that set.
+
+    Args:
+        session: Active async database session.
+        name: Case-insensitive substring match against card name.
+        hero_class: Exact hero class string (e.g. ``"Ninja"``).
+        talent: Exact talent string (e.g. ``"Shadow"``).
+        pitch: Exact pitch value (0, 1, 2, or 3).
+        set_code: Restrict to cards appearing in the set with this code.
+        page: 1-based page number.
+        page_size: Number of results per page.
+
+    Returns:
+        Tuple of (cards on this page, total matching count).
+    """
     q = select(Card)
 
     if name:
@@ -151,6 +229,16 @@ async def list_cards(
 
 
 async def get_card(session: AsyncSession, card_id: uuid.UUID) -> Card | None:
+    """Fetch a single card by primary key with all its printings and sets eager-loaded.
+
+    Args:
+        session: Active async database session.
+        card_id: UUID primary key of the card.
+
+    Returns:
+        The Card with ``card.printings`` and each ``printing.set`` populated,
+        or None if not found.
+    """
     result = await session.execute(
         select(Card)
         .where(Card.id == card_id)

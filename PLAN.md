@@ -13,27 +13,15 @@
 | 6 — Missing / Wishlists | `GET /missing`, wishlist CRUD (402 gate), missing page with save/load/delete |
 | 7 — Types | openapi-typescript generates `packages/types/index.ts`; `api.ts` re-exports via `@fabgreat/types` |
 | Docs — OpenAPI | Field descriptions, endpoint summaries, error response docs on all schemas and routers |
+| Docs | ADRs (`docs/adr/`), service-layer docstrings, `CHANGELOG.md` |
 
 ---
 
 ## Upcoming work (in order)
 
-### 1. Missing documentation
-
-**Goal:** a reviewer can understand every decision without asking.
-
-- [ ] **ADRs** (`docs/adr/`) — 3–4 short files:
-  - `001-strategy-b-printings.md` — why one Printing row per foiling instead of a JSON array
-  - `002-monorepo.md` — why frontend and backend share a repo
-  - `003-jwt-refresh-tokens.md` — why opaque refresh tokens stored in DB vs stateless JWT
-  - `004-async-stack.md` — why FastAPI + asyncpg over Flask/Django
-- [ ] **Service-layer docstrings** — Google-style docstrings on all public functions in `services/*.py`
-  - Focus on business rules: qty=0 deletes, atomic bulk validation, wishlist free-tier limit
-- [ ] **`CHANGELOG.md`** — one entry per phase, Keep a Changelog format
-
 ---
 
-### 2. CI/CD
+### 1. CI/CD
 
 **Goal:** every push to `main` is automatically verified; merges only happen when green.
 
@@ -47,7 +35,7 @@
 
 ---
 
-### 3. UI/UX
+### 2. UI/UX
 
 **Goal:** looks like a real product, not a homework project.
 
@@ -59,7 +47,7 @@
 
 ---
 
-### 4. Playwright — E2E tests
+### 3. Playwright — E2E tests
 
 **Goal:** automated browser tests covering critical user paths.
 
@@ -73,7 +61,7 @@
 
 ---
 
-### 5. Deploy
+### 4. Deploy
 
 **Goal:** live public URL, suitable for a CV or portfolio link.
 

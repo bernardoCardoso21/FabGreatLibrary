@@ -14,14 +14,32 @@ class DuplicateEmailError(Exception):
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
+    """Look up a user by email address.
+
+    Args:
+        session: Active async database session.
+        email: Email address to search for.
+
+    Returns:
+        The matching User, or None if no account exists with that email.
+    """
     result = await session.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
 
 
 async def create_user(session: AsyncSession, email: str, password: str) -> User:
-    """
-    Create a new user.
-    Raises DuplicateEmailError if the email is already registered.
+    """Create a new user account with a hashed password.
+
+    Args:
+        session: Active async database session.
+        email: Email address for the new account. Must be unique.
+        password: Plain-text password; stored as a bcrypt hash.
+
+    Returns:
+        The newly created User (flushed but not yet committed).
+
+    Raises:
+        DuplicateEmailError: If an account with the given email already exists.
     """
     if await get_user_by_email(session, email):
         raise DuplicateEmailError(f"Email already registered: {email}")

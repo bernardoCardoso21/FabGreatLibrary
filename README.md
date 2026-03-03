@@ -273,7 +273,10 @@ FabGreatLibrary/
 │           ├── api.ts              API client — re-exports generated types + 11 fetch functions
 │           └── auth.ts             Token helpers (localStorage)
 ├── packages/types/                 openapi.json + generated index.ts (source of truth for TS types)
+├── docs/
+│   └── adr/                        Architecture Decision Records (001–004)
 ├── infra/docker/                   docker-compose.yml
+├── CHANGELOG.md
 ├── Makefile
 └── .env.example
 ```
@@ -292,3 +295,4 @@ FabGreatLibrary/
 | 5 — Collection | ✅ | Backend: summary, upsert, atomic bulk · Frontend: set grid, +1 increment, bulk select |
 | 6 — Missing / Wishlists | ✅ | `GET /missing`, wishlist CRUD (402 gate), missing page with save/load/delete |
 | 7 — Types | ✅ | openapi-typescript generates `packages/types/index.ts` from FastAPI schema; `api.ts` re-exports via `@fabgreat/types` alias — no manual type duplication |
+| Docs | ✅ | ADRs (`docs/adr/`), Google-style service docstrings, `CHANGELOG.md` |
