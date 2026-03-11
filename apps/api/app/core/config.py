@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     api_port: int = 8000
     debug: bool = False
 
+    # CORS
+    cors_origins: str = "http://localhost:3000"
+
     # Database
     database_url: str = "postgresql+asyncpg://fab:fab@localhost:5432/fabgreat"
     # Set to True in production when Postgres requires SSL

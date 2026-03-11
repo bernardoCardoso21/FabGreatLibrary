@@ -29,9 +29,9 @@
   - Trigger: push + PR to `main`
   - Jobs:
     - `backend`: spin up Postgres service container, run `pytest -v`
-    - `frontend`: run `npm run build` (catches type errors)
-- [ ] **CD** — connect Railway (API + DB) and Vercel (Next.js) to GitHub; they auto-deploy on merge to `main`
-- [ ] **Branch protection** — require CI green before merge to `main`
+    - `frontend`: run `npm run build` (catches type errors) + `npm run lint`
+- [x] **CD** — `railway.toml` + `vercel.json` config files; CORS origins from env var
+- [x] **Branch protection** — require CI green before merge to `main`
 
 ---
 

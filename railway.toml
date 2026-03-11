@@ -1,0 +1,6 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd apps/api && pip install ."
+
+[deploy]
+startCommand = "cd apps/api && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
