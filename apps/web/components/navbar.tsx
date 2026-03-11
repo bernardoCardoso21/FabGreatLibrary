@@ -2,21 +2,15 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { clearToken, getToken } from '@/lib/auth'
+import { clearToken, useTokenValue } from '@/lib/auth'
 
 export function Navbar() {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-
-  useEffect(() => {
-    setIsLoggedIn(!!getToken())
-  }, [])
+  const isLoggedIn = !!useTokenValue()
 
   function logout() {
     clearToken()
-    setIsLoggedIn(false)
     router.push('/')
   }
 
