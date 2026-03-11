@@ -25,7 +25,7 @@
 
 **Goal:** every push to `main` is automatically verified; merges only happen when green.
 
-- [ ] **GitHub Actions — CI** (`.github/workflows/ci.yml`):
+- [x] **GitHub Actions — CI** (`.github/workflows/ci.yml`):
   - Trigger: push + PR to `main`
   - Jobs:
     - `backend`: spin up Postgres service container, run `pytest -v`
