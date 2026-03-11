@@ -65,11 +65,18 @@
 
 **Goal:** live public URL, suitable for a CV or portfolio link.
 
-- [ ] **Backend prod changes:**
-  - CORS origins read from env var (`settings.cors_origins`)
-  - `railway.toml` with start command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-- [ ] **Railway** — host FastAPI + PostgreSQL; inject env vars; run `import-cards` once via shell
-- [ ] **Vercel** — host Next.js; set `NEXT_PUBLIC_API_URL` to Railway URL; set root dir to `apps/web`
+#### Prerequisites — create accounts before starting this phase
+
+- [ ] **Railway account** (https://railway.app) — sign up with GitHub. Hosts the FastAPI backend and a managed PostgreSQL database. Railway reads `railway.toml` from the repo to know how to build and start the API. Free trial gives $5 credit; after that the Hobby plan is $5/month. Needed because Vercel only runs Node.js/Edge — it cannot host a Python backend or a Postgres instance.
+- [ ] **Vercel account** (https://vercel.com) — sign up with GitHub. Hosts the Next.js frontend on their edge CDN. Vercel reads `vercel.json` from the repo to know how to build the app. The free Hobby tier is enough for a portfolio project. Needed because Railway can serve static files but has no edge CDN and no built-in Next.js optimisations (ISR, image optimisation, etc.).
+
+#### Steps
+
+- [x] **Backend prod changes:**
+  - CORS origins read from env var (`settings.cors_origins`) — done in CI/CD phase
+  - `railway.toml` + `vercel.json` config files — done in CI/CD phase
+- [ ] **Railway** — connect repo, add PostgreSQL plugin, inject env vars (`DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`), run `import-cards` once via Railway shell
+- [ ] **Vercel** — connect repo, set `NEXT_PUBLIC_API_URL` to the Railway URL, set root directory to `apps/web`
 - [ ] **Custom domain** (~10 USD/year via Cloudflare Registrar)
 - [ ] **README badge** — link to live site
 
