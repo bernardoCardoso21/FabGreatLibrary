@@ -13,7 +13,7 @@ import {
   apiUpsertItem,
   type PrintingFilters,
 } from '@/lib/api'
-import { getToken } from '@/lib/auth'
+import { useTokenValue } from '@/lib/auth'
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
@@ -82,8 +82,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
   const { id: setId } = use(params)
   const queryClient = useQueryClient()
 
-  const [token, setToken] = useState<string | null>(null)
-  useEffect(() => { setToken(getToken()) }, [])
+  const token = useTokenValue()
 
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')

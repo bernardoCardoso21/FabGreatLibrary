@@ -2,17 +2,12 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiGetSets, type SetSummary } from '@/lib/api'
-import { getToken } from '@/lib/auth'
+import { useTokenValue } from '@/lib/auth'
 
 export default function SetsPage() {
-  const [token, setToken] = useState<string | null>(null)
-
-  useEffect(() => {
-    setToken(getToken())
-  }, [])
+  const token = useTokenValue()
 
   const { data: sets, isLoading, error } = useQuery<SetSummary[]>({
     queryKey: ['sets', token],

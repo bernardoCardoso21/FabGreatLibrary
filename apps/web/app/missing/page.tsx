@@ -14,7 +14,7 @@ import {
   type MissingFilters,
   type WishlistFilter,
 } from '@/lib/api'
-import { getToken } from '@/lib/auth'
+import { useTokenValue } from '@/lib/auth'
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
@@ -83,18 +83,13 @@ export default function MissingPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  const [token, setToken] = useState<string | null>(null)
-  const [ready, setReady] = useState(false)
+  const token = useTokenValue()
 
   useEffect(() => {
-    const t = getToken()
-    if (!t) {
+    if (token === null) {
       router.push('/login')
-    } else {
-      setToken(t)
-      setReady(true)
     }
-  }, [router])
+  }, [token, router])
 
   // Filter state
   const [setIdFilter, setSetIdFilter] = useState('')
@@ -177,7 +172,7 @@ export default function MissingPage() {
     setPage(1)
   }
 
-  if (!ready) return null
+  if (!token) return null
 
   const items = missingQuery.data?.items ?? []
   const total = missingQuery.data?.total ?? 0
