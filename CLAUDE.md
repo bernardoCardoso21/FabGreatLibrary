@@ -1,5 +1,15 @@
 # CLAUDE.md — FabGreat Library
 
+## Purpose
+
+FabGreat Library is a full-stack **Flesh & Blood TCG collection tracker** — a personal portfolio project.
+
+Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, manage their collection via single-click increment or atomic bulk updates, and browse missing printings with saved wishlist filters.
+
+**Architecture:** React frontend (Next.js) talks to a FastAPI REST backend over JSON. The backend is the single source of truth — TypeScript types are generated from its OpenAPI schema. PostgreSQL is the only datastore; everything is async end-to-end.
+
+---
+
 ## Stack
 
 | Layer | Choice |
@@ -10,6 +20,8 @@
 | Types | TS client/types generated from OpenAPI spec (`packages/types/`) |
 | Card data | the-fab-cube/flesh-and-blood-cards dataset (pinned release, imported via script) |
 | Local infra | Docker Compose (Postgres + optional pgAdmin) |
+
+---
 
 ## Repo layout
 
@@ -89,6 +101,51 @@ docs/
 CHANGELOG.md               Keep a Changelog format — one entry per phase
 ```
 
+---
+
+## Key commands
+
+`make` targets work in Git Bash / Linux / macOS. On Windows PowerShell use the direct equivalents.
+
+| Task | `make` | PowerShell |
+|---|---|---|
+| Start Postgres | `make up` | `docker compose -f infra/docker/docker-compose.yml up -d` |
+| Install deps | `make install` | `cd apps/api; python -m venv .venv; .venv\Scripts\pip install -e ".[dev]"` then `cd apps/web; npm install` |
+| FastAPI dev server | `make api-dev` | `cd apps/api; .venv\Scripts\uvicorn app.main:app --reload --port 8000` |
+| Next.js dev server | `make web-dev` | `cd apps/web; npm run dev` |
+| Run migrations | `make migrate` | `cd apps/api; .venv\Scripts\alembic upgrade head` |
+| Seed dev data | `make seed` | `cd apps/api; .venv\Scripts\python -m scripts.seed` |
+| Import card dataset | `make import-cards` | `cd apps/api; .venv\Scripts\python -m scripts.import_cards` |
+| Run backend tests | `make test` | `cd apps/api; .venv\Scripts\pytest -v` |
+| Frontend build (type check) | `make web-build` | `cd apps/web; npm run build` |
+| Frontend lint | — | `cd apps/web; npm run lint` |
+
+### OpenAPI / type regeneration
+
+Run this after any backend schema change:
+
+```bash
+# Git Bash / Linux / macOS
+cd apps/api && .venv/Scripts/python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" > ../../packages/types/openapi.json
+cd packages/types && npx openapi-typescript openapi.json -o index.ts
+```
+
+```powershell
+# PowerShell (Windows)
+cd apps\api; .venv\Scripts\python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" | Out-File -FilePath ..\..\packages\types\openapi.json -Encoding utf8
+cd packages\types; npx openapi-typescript openapi.json -o index.ts
+```
+
+---
+
+## Environment
+
+- Root `.env` (copy from `.env.example`) — consumed by Docker Compose and the API.
+- `apps/web/.env.local` (copy from `.env.local.example`) — consumed by Next.js.
+- Never commit `.env` or `.env.local`.
+
+---
+
 ## Workflow rules
 
 1. **One task at a time.** Complete the current numbered task, then stop.
@@ -98,16 +155,48 @@ CHANGELOG.md               Keep a Changelog format — one entry per phase
 5. **If anything is unclear** after reading the spec or existing code, use `AskUserQuestion` — do not guess.
 6. **Keep code simple and conventional.** No clever abstractions; no features beyond what the current task requires.
 
+---
+
+## Coding conventions
+
+### Python (backend)
+
+- **No SQL in routers.** All database access goes in `services/`. Routers call services, never touch `db` directly.
+- **All functions are async.** The entire stack is async (`asyncpg` driver); never use sync SQLAlchemy calls.
+- **No passlib** — use `bcrypt` directly (`bcrypt.hashpw` / `bcrypt.checkpw`). passlib is incompatible with `bcrypt>=4.x`.
+- **Google-style docstrings** on all service functions (already applied to existing services).
+- **Pydantic models** use `model_config = ConfigDict(from_attributes=True)` for ORM output schemas.
+- **No `asyncio_default_fixture_loop_scope`** in `pyproject.toml` — asyncpg binds connections to the event loop; do not touch this setting.
+- Print statements in scripts: use ASCII characters only (avoid Unicode arrows/ellipsis — Windows console issues).
+
+### TypeScript (frontend)
+
+- **Do not define manual interfaces for backend types.** Use generated types from `@fabgreat/types` (re-exported via `apps/web/lib/api.ts`). Only `PrintingFilters` and `MissingFilters` (frontend-only query param groupings) live in `api.ts`.
+- **`'use client'`** directive required on any component that uses hooks, browser APIs, or event handlers.
+- **Token reads inside `useEffect`** — never read `localStorage` at module level or during render; SSR will break.
+- **Next.js 16 dynamic params** are `Promise<{id: string}>` — unwrap with `use(params)` from React 19.
+- **Query keys:** `['sets', token]`, `['set-printings', setId, filters]`, `['collection', setId]`, `['missing', filters]`, `['wishlists']`.
+- **After any mutation** that changes ownership: invalidate `['collection', setId]` and `['sets']` so completion bars update.
+
+### General
+
+- No over-engineering. No helpers for one-off operations. No features beyond the current task.
+- No backwards-compatibility shims. No dead-code comments. Delete unused code.
+
+---
+
 ## Domain invariants
 
 - Ownership is tracked by `(user_id, printing_id)` — unique constraint in DB (Strategy B: foiling is encoded in the Printing row itself).
 - `qty` must be ≥ 1 when a row exists; setting `qty = 0` **deletes** the row — enforced in service layer.
 - `qty` may never go negative.
-- Free tier: maximum **1 saved wishlist** per user — enforced in the service layer, not the DB.
+- Free tier: maximum **1 saved wishlist** per user — enforced in the service layer, not the DB. Returns HTTP 402.
 - Wishlist stores a `filter_json` blob (set_id, traits, etc.) plus a name.
 - No condition tracking — quantity only.
 
-## Data model (key relationships)
+---
+
+## Data model
 
 ```
 users ──< refresh_tokens
@@ -116,6 +205,8 @@ users ──< owned_printings >── printings >── cards
                                printings >── sets
 ```
 
+---
+
 ## Card dataset (Strategy B)
 
 - Source: `the-fab-cube/flesh-and-blood-cards` GitHub release (pinned to `CARDS_DATA_VERSION`, default `v8.1.0`).
@@ -123,6 +214,8 @@ users ──< owned_printings >── printings >── cards
 - Foiling codes: `S`=Standard, `R`=Rainbow, `C`=Cold, `G`=Gold Cold.
 - Edition codes: `A`=Alpha, `F`=First, `U`=Unlimited, `N`=No specified edition.
 - Import is idempotent (`ON CONFLICT DO UPDATE`). Re-running `make import-cards` is safe.
+
+---
 
 ## Current API surface
 
@@ -146,64 +239,26 @@ users ──< owned_printings >── printings >── cards
 | GET | `/wishlists` | Bearer | List user's wishlists |
 | DELETE | `/wishlists/{id}` | Bearer | Delete wishlist; 404 if not found or wrong user |
 
-## Frontend conventions
+Interactive docs: **http://localhost:8000/docs**
 
-- **Token storage:** `localStorage` key `fab_access_token` — read via `getToken()` in `lib/auth.ts`.
-- **Auth state in components:** always read token inside `useEffect` to avoid SSR hydration mismatches.
-- **Next.js 16 params:** dynamic route params are `Promise<{id: string}>` — unwrap with `use(params)` from React 19.
-- **Query keys:** `['sets', token]`, `['set-printings', setId, filters]`, `['collection', setId]`, `['missing', filters]`, `['wishlists']`.
-- **After any mutation** that changes ownership: invalidate `['collection', setId]` and `['sets']` so completion bars update.
-- **Auth redirect on protected pages:** read token in `useEffect`; if null call `router.push('/login')` and return null until ready.
-- **shadcn components** installed: badge, card, button, checkbox, input.
+---
 
-## Test setup (critical notes)
+## Test setup (critical gotchas)
 
-- Do NOT set `asyncio_default_fixture_loop_scope` in `pyproject.toml` — asyncpg binds connections to the event loop.
+- **Do NOT set `asyncio_default_fixture_loop_scope`** in `pyproject.toml` — asyncpg binds connections to the event loop.
 - `db` fixture creates a fresh engine per test and rolls back the transaction after.
 - `client` fixture patches `db.commit = db.flush` so route-level commits stay inside the test transaction.
-- `import app.db.models` MUST come before `from app.main import app` in conftest — otherwise `app` is shadowed by the package.
+- `import app.db.models` **MUST come before** `from app.main import app` in conftest — otherwise `app` is shadowed by the package.
+- After an `IntegrityError`, call `await db.rollback()` before fixture cleanup runs.
 - Test emails must use real TLDs (e.g. `@example.com`); email-validator rejects `.local`.
-- Tests that insert sets must use codes that don't exist in the real dataset (avoid real codes like WTR, ARC, etc.). Use short synthetic codes like `TSTA`, `CNT`, `SP1`.
+- Tests that insert sets must use codes that don't exist in the real dataset (avoid `WTR`, `ARC`, etc.). Use short synthetic codes like `TSTA`, `CNT`, `SP1`.
 - Tests asserting an empty DB will fail after `make import-cards` — use `isinstance(resp.json(), list)` instead of `== []`.
+- Bulk auth test: accept `401|422` — FastAPI resolves auth before body validation.
 
-## OpenAPI / type generation
+---
 
-The backend is the single source of truth for the API contract. `packages/types/index.ts` is
-**committed** — no regen needed to build. After any backend schema change, regenerate:
+## Types / OpenAPI contract
 
-```bash
-# bash (Git Bash / Linux / macOS)
-cd apps/api && .venv/Scripts/python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" > ../../packages/types/openapi.json
-cd packages/types && npx openapi-typescript openapi.json -o index.ts
-```
+The backend is the single source of truth for the API contract. `packages/types/index.ts` is **committed** — no regen needed to build. Regenerate only after backend schema changes (see command above).
 
-```powershell
-# PowerShell (Windows)
-cd apps\api; .venv\Scripts\python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" | Out-File -FilePath ..\..\packages\types\openapi.json -Encoding utf8
-cd packages\types; npx openapi-typescript openapi.json -o index.ts
-```
-
-`apps/web/lib/api.ts` re-exports all backend types via `@fabgreat/types` alias (configured in
-`apps/web/tsconfig.json`). **Do not add manual interface definitions** for backend schemas —
-they will drift. Only `PrintingFilters` and `MissingFilters` (frontend-only query param
-groupings) live in `api.ts` itself.
-
-## Key commands
-
-`make` targets work in Git Bash / Linux / macOS. On Windows PowerShell use the direct equivalents.
-
-| Task | `make` | PowerShell |
-|---|---|---|
-| Start Postgres | `make up` | `docker compose -f infra/docker/docker-compose.yml up -d` |
-| FastAPI dev server | `make api-dev` | `cd apps/api; .venv\Scripts\uvicorn app.main:app --reload --port 8000` |
-| Next.js dev server | `make web-dev` | `cd apps/web; npm run dev` |
-| Run migrations | `make migrate` | `cd apps/api; .venv\Scripts\alembic upgrade head` |
-| Seed dev data | `make seed` | `cd apps/api; .venv\Scripts\python -m scripts.seed` |
-| Import card dataset | `make import-cards` | `cd apps/api; .venv\Scripts\python -m scripts.import_cards` |
-| Run tests | `make test` | `cd apps/api; .venv\Scripts\pytest -v` |
-
-## Environment
-
-- Root `.env` (copy from `.env.example`) — consumed by Docker Compose and the API.
-- `apps/web/.env.local` (copy from `.env.local.example`) — consumed by Next.js.
-- Never commit `.env` or `.env.local`.
+`apps/web/lib/api.ts` re-exports all backend types via `@fabgreat/types` alias (configured in `apps/web/tsconfig.json`). **Do not add manual interface definitions** for backend schemas — they will drift.
