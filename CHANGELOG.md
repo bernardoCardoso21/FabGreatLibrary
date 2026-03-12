@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.10.0] - 2026-03-12 — UI/UX
+
+### Added
+- Card image thumbnails in printings tables (set detail + missing pages); lazy-loaded with placeholder fallback
+- Landing page hero section with live stats bar (fetches `/sets` to show real set and printing counts)
+- Dark mode toggle in navbar; persisted to `localStorage`, inline script prevents flash of wrong theme
+- Dark-mode-aware badge colors for foiling and rarity badges across all tables
+- Empty states with dashed-border panels: contextual messages distinguish "no data" from "filters too narrow", with inline clear-filters links
+- Demo account (`demo@fabgreatlibrary.com` / `demo1234`) seeded via `make seed` with ~300 random owned printings
+- "Try demo account" button on login page; "Try Demo" CTA on landing page
+- `lib/theme.ts` — `useTheme()` hook (useSyncExternalStore), `toggleTheme()`, `setTheme()`
+
+---
+
+## [0.9.0] - 2026-03-12 — CI/CD
+
+### Added
+- GitHub Actions CI workflow (`.github/workflows/ci.yml`): backend job (Postgres service container + pytest) and frontend job (npm build + lint)
+- `railway.toml` and `vercel.json` deployment config files
+- CORS origins configurable via `CORS_ORIGINS` env var
+- Branch protection notes in PLAN.md
+- `useSyncExternalStore` token pattern replacing `useState+useEffect` in auth
+
+---
+
 ## [0.8.0] - 2026-03-03 — Docs
 
 ### Added

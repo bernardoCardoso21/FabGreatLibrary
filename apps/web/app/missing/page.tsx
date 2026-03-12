@@ -1,6 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -25,10 +26,10 @@ const FOILING_LABEL: Record<string, string> = {
   G: 'Gold Cold',
 }
 const FOILING_CLASS: Record<string, string> = {
-  S: 'bg-slate-100 text-slate-700',
-  R: 'bg-purple-100 text-purple-700',
-  C: 'bg-blue-100 text-blue-700',
-  G: 'bg-yellow-100 text-yellow-700',
+  S: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  R: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  C: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  G: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
 }
 const RARITY_LABEL: Record<string, string> = {
   C: 'Common',
@@ -40,13 +41,13 @@ const RARITY_LABEL: Record<string, string> = {
   P: 'Promo',
 }
 const RARITY_CLASS: Record<string, string> = {
-  C: 'bg-slate-100 text-slate-600',
-  R: 'bg-blue-100 text-blue-700',
-  M: 'bg-purple-100 text-purple-700',
-  L: 'bg-orange-100 text-orange-700',
-  F: 'bg-red-100 text-red-700',
+  C: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  R: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  M: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
+  L: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  F: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
   T: 'bg-muted text-muted-foreground',
-  P: 'bg-green-100 text-green-700',
+  P: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
 }
 const EDITION_LABEL: Record<string, string> = {
   A: 'Alpha',
@@ -286,7 +287,22 @@ export default function MissingPage() {
       ) : missingQuery.error ? (
         <p className="text-destructive">Failed to load missing printings.</p>
       ) : items.length === 0 ? (
-        <p className="text-muted-foreground">No missing printings found.</p>
+        <div className="rounded-lg border border-dashed py-12 text-center">
+          <p className="text-lg font-medium">No missing printings</p>
+          {(setIdFilter || foilingFilter || rarityFilter) ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Try adjusting your filters or{' '}
+              <button
+                className="underline hover:text-foreground"
+                onClick={() => { setSetIdFilter(''); setFoilingFilter(''); setRarityFilter(''); setPage(1) }}
+              >
+                clear all filters
+              </button>
+            </p>
+          ) : (
+            <p className="mt-1 text-sm text-muted-foreground">You own every printing in the catalog. Nice!</p>
+          )}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
@@ -304,9 +320,27 @@ export default function MissingPage() {
               {items.map(printing => (
                 <tr key={printing.id} className="hover:bg-muted/30">
                   <td className="px-3 py-2">
-                    <div className="font-medium">{printing.card.name}</div>
-                    <div className="font-mono text-xs text-muted-foreground">
-                      {printing.printing_id}
+                    <div className="flex items-center gap-3">
+                      {printing.image_url ? (
+                        <Image
+                          src={printing.image_url}
+                          alt={printing.card.name}
+                          width={40}
+                          height={56}
+                          className="shrink-0 rounded object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                          ?
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium">{printing.card.name}</div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {printing.printing_id}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="px-3 py-2">

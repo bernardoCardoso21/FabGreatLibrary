@@ -39,11 +39,11 @@
 
 **Goal:** looks like a real product, not a homework project.
 
-- [ ] **Card images** — render `image_url` from `PrintingWithCard` in the printings table (data already there)
-- [ ] **Landing page** — hero section + live stats bar (hits `/sets` on load, shows real counts)
-- [ ] **Dark mode** — Tailwind v4 + shadcn/ui, ~50 lines of CSS
-- [ ] **Empty states** — friendly message when filters return no results
-- [ ] **Demo account** — pre-seeded user (`demo@fabgreatlibrary.com` / `demo1234`) with a realistic collection
+- [x] **Card images** — render `image_url` from `PrintingWithCard` in the printings table (data already there)
+- [x] **Landing page** — hero section + live stats bar (hits `/sets` on load, shows real counts)
+- [x] **Dark mode** — Tailwind v4 + shadcn/ui, theme toggle in navbar, persisted to localStorage
+- [x] **Empty states** — friendly message when filters return no results, with clear-filters links
+- [x] **Demo account** — pre-seeded user (`demo@fabgreatlibrary.com` / `demo1234`) with ~300 owned printings
 
 ---
 
