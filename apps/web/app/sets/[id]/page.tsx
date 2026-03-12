@@ -1,6 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import Image from 'next/image'
 import Link from 'next/link'
 import { use, useEffect, useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
@@ -329,11 +330,13 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-3">
                         {printing.image_url ? (
-                          <img
+                          <Image
                             src={printing.image_url}
                             alt={printing.card.name}
-                            className="h-14 w-10 shrink-0 rounded object-cover"
-                            loading="lazy"
+                            width={40}
+                            height={56}
+                            className="shrink-0 rounded object-cover"
+                            unoptimized
                           />
                         ) : (
                           <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">

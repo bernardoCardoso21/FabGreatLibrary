@@ -39,7 +39,7 @@ export default function SetsPage() {
       {sets?.length === 0 ? (
         <div className="rounded-lg border border-dashed py-12 text-center">
           <p className="text-lg font-medium">No sets available</p>
-          <p className="mt-1 text-sm text-muted-foreground">The card catalog hasn't been imported yet.</p>
+          <p className="mt-1 text-sm text-muted-foreground">The card catalog has not been imported yet.</p>
         </div>
       ) : (
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
