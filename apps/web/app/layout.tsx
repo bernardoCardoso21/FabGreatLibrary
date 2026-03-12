@@ -12,9 +12,14 @@ export const metadata: Metadata = {
   description: 'Flesh and Blood collection tracker',
 }
 
+const themeScript = `(function(){try{var t=localStorage.getItem('fab_theme');if(t==='dark')document.documentElement.classList.add('dark')}catch(e){}})();`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Providers>
           <Navbar />

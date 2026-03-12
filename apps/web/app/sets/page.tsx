@@ -36,6 +36,12 @@ export default function SetsPage() {
         <h1 className="text-3xl font-bold">Sets</h1>
         <p className="text-sm text-muted-foreground">{sets?.length ?? 0} sets</p>
       </div>
+      {sets?.length === 0 ? (
+        <div className="rounded-lg border border-dashed py-12 text-center">
+          <p className="text-lg font-medium">No sets available</p>
+          <p className="mt-1 text-sm text-muted-foreground">The card catalog hasn't been imported yet.</p>
+        </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         {sets?.map(set => (
           <Link key={set.id} href={`/sets/${set.id}`}>
@@ -71,6 +77,7 @@ export default function SetsPage() {
           </Link>
         ))}
       </div>
+      )}
     </main>
   )
 }
