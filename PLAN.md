@@ -14,6 +14,9 @@
 | 7 — Types | openapi-typescript generates `packages/types/index.ts`; `api.ts` re-exports via `@fabgreat/types` |
 | Docs — OpenAPI | Field descriptions, endpoint summaries, error response docs on all schemas and routers |
 | Docs | ADRs (`docs/adr/`), service-layer docstrings, `CHANGELOG.md` |
+| CI/CD | GitHub Actions (backend + frontend + e2e jobs), `railway.toml` + `vercel.json` |
+| UI/UX | Card images, hero landing, dark mode, empty states, demo account |
+| Playwright | 14 E2E tests (auth, sets, collection, missing/wishlists), wired into CI |
 
 ---
 
@@ -51,13 +54,14 @@
 
 **Goal:** automated browser tests covering critical user paths.
 
-- [ ] Install Playwright in `apps/web/`
-- [ ] Test suite (`apps/web/tests/`):
+- [x] Install Playwright in `apps/web/`
+- [x] Test suite (`apps/web/tests/e2e/`):
   - Auth flow: register → redirect to /sets; login → redirect to /sets; logout
-  - Browse: set grid loads; clicking a set opens printings table
+  - Browse: set grid loads; completion bars visible; clicking a set opens printings table
   - Collection: +1 increment updates qty; bulk clear removes items
-  - Missing: filters update results; save wishlist → appears in panel; delete wishlist
-- [ ] Wire Playwright into CI (separate job, runs against built app)
+  - Missing: page loads with count; filters update results; wishlist save/delete CRUD
+- [x] Wire Playwright into CI (`e2e` job, needs backend + frontend, runs against built app)
+- [x] Bug fix: `api.ts` `request()` now handles 204 No Content (was breaking wishlist delete)
 
 ---
 
