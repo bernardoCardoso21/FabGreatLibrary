@@ -20,52 +20,11 @@
 
 ---
 
-## Upcoming work (in order)
+## Upcoming work
 
 ---
 
-### 1. CI/CD
-
-**Goal:** every push to `main` is automatically verified; merges only happen when green.
-
-- [x] **GitHub Actions — CI** (`.github/workflows/ci.yml`):
-  - Trigger: push + PR to `main`
-  - Jobs:
-    - `backend`: spin up Postgres service container, run `pytest -v`
-    - `frontend`: run `npm run build` (catches type errors) + `npm run lint`
-- [x] **CD** — `railway.toml` + `vercel.json` config files; CORS origins from env var
-- [x] **Branch protection** — require CI green before merge to `main`
-
----
-
-### 2. UI/UX
-
-**Goal:** looks like a real product, not a homework project.
-
-- [x] **Card images** — render `image_url` from `PrintingWithCard` in the printings table (data already there)
-- [x] **Landing page** — hero section + live stats bar (hits `/sets` on load, shows real counts)
-- [x] **Dark mode** — Tailwind v4 + shadcn/ui, theme toggle in navbar, persisted to localStorage
-- [x] **Empty states** — friendly message when filters return no results, with clear-filters links
-- [x] **Demo account** — pre-seeded user (`demo@fabgreatlibrary.com` / `demo1234`) with ~300 owned printings
-
----
-
-### 3. Playwright — E2E tests
-
-**Goal:** automated browser tests covering critical user paths.
-
-- [x] Install Playwright in `apps/web/`
-- [x] Test suite (`apps/web/tests/e2e/`):
-  - Auth flow: register → redirect to /sets; login → redirect to /sets; logout
-  - Browse: set grid loads; completion bars visible; clicking a set opens printings table
-  - Collection: +1 increment updates qty; bulk clear removes items
-  - Missing: page loads with count; filters update results; wishlist save/delete CRUD
-- [x] Wire Playwright into CI (`e2e` job, needs backend + frontend, runs against built app)
-- [x] Bug fix: `api.ts` `request()` now handles 204 No Content (was breaking wishlist delete)
-
----
-
-### 4. Deploy
+### Deploy
 
 **Goal:** live public URL, suitable for a CV or portfolio link.
 
@@ -83,11 +42,3 @@
 - [ ] **Vercel** — connect repo, set `NEXT_PUBLIC_API_URL` to the Railway URL, set root directory to `apps/web`
 - [ ] **Custom domain** (~10 USD/year via Cloudflare Registrar)
 - [ ] **README badge** — link to live site
-
----
-
-## Notes
-
-- Always complete CI before UI work — lets you iterate with confidence
-- Playwright before deploy — go live with browser coverage, not just unit tests
-- 92 backend tests currently passing; Next.js build clean
