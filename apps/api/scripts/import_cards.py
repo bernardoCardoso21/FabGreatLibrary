@@ -86,6 +86,19 @@ def _parse_pitch(raw: str) -> int | None:
         return None
 
 
+_DECK_KEYWORDS = ["deck", "classic battles", "first strike"]
+_PROMO_KEYWORDS = ["promo", "tokens", "prize cards"]
+
+
+def _classify_set(name: str) -> str:
+    lower = name.lower()
+    if any(k in lower for k in _DECK_KEYWORDS):
+        return "deck"
+    if any(k in lower for k in _PROMO_KEYWORDS):
+        return "promo"
+    return "booster"
+
+
 def _chunks(lst: list, n: int):
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
@@ -103,18 +116,21 @@ async def _upsert_sets(session, sets_data: list) -> dict[str, uuid.UUID]:
             "code": s["id"],
             "name": s["name"],
             "source_id": s["unique_id"],
+            "set_type": _classify_set(s["name"]),
             "created_at": now,
         }
         for s in sets_data
     ]
     for chunk in _chunks(rows, 200):
+        excluded = pg_insert(Set.__table__).excluded
         stmt = (
             pg_insert(Set.__table__)
             .values(chunk)
             .on_conflict_do_update(
                 index_elements=["code"],
-                set_={"name": pg_insert(Set.__table__).excluded.name,
-                      "source_id": pg_insert(Set.__table__).excluded.source_id},
+                set_={"name": excluded.name,
+                      "source_id": excluded.source_id,
+                      "set_type": excluded.set_type},
             )
         )
         await session.execute(stmt)

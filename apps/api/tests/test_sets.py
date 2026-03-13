@@ -25,8 +25,8 @@ def _auth_header(user: User) -> dict:
     return {"Authorization": f"Bearer {create_access_token(user.email)}"}
 
 
-async def _make_set(db, code: str, name: str = "Test Set") -> Set:
-    s = Set(code=code, name=name)
+async def _make_set(db, code: str, name: str = "Test Set", set_type: str = "booster") -> Set:
+    s = Set(code=code, name=name, set_type=set_type)
     db.add(s)
     await db.flush()
     return s
@@ -118,6 +118,25 @@ class TestGetSets:
         resp = await client.get("/sets")
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
+
+    async def test_filter_by_set_type(self, client: AsyncClient, db):
+        await _make_set(db, "BT1", "Booster One", set_type="booster")
+        await _make_set(db, "DK1", "Deck One", set_type="deck")
+
+        resp = await client.get("/sets", params={"set_type": "deck"})
+        assert resp.status_code == 200
+        codes = [s["code"] for s in resp.json() if s["code"] in ("BT1", "DK1")]
+        assert codes == ["DK1"]
+
+    async def test_no_filter_returns_all_types(self, client: AsyncClient, db):
+        await _make_set(db, "BT2", "Booster Two", set_type="booster")
+        await _make_set(db, "PR2", "Promo Two", set_type="promo")
+
+        resp = await client.get("/sets")
+        assert resp.status_code == 200
+        codes = {s["code"] for s in resp.json()}
+        assert "BT2" in codes
+        assert "PR2" in codes
 
 
 # ── GET /sets/{set_id}/printings ──────────────────────────────────────────────

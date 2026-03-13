@@ -656,6 +656,8 @@ export interface components {
             name: string;
             /** Image Url */
             image_url: string | null;
+            /** Set Type */
+            set_type: string;
         };
         /**
          * SetSummary
@@ -684,8 +686,13 @@ export interface components {
              */
             image_url: string | null;
             /**
+             * Set Type
+             * @description Category: booster, deck, or promo.
+             */
+            set_type: string;
+            /**
              * Printing Count
-             * @description Total number of distinct printings (card × edition × foiling) in this set.
+             * @description Total number of distinct printings (card x edition x foiling) in this set.
              */
             printing_count: number;
             /**
@@ -1030,7 +1037,10 @@ export interface operations {
     };
     get_sets_sets_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Filter by category: booster, deck, or promo. */
+                set_type?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1044,6 +1054,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SetSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

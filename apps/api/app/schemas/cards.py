@@ -10,6 +10,7 @@ class SetOut(BaseModel):
     code: str
     name: str
     image_url: str | None
+    set_type: str
 
 
 class SetSummary(BaseModel):
@@ -19,7 +20,8 @@ class SetSummary(BaseModel):
     code: str = Field(description="Short set code (e.g. 'WTR', 'ARC').")
     name: str = Field(description="Full set name (e.g. 'Welcome to Rathe').")
     image_url: str | None = Field(description="URL to the set's logo or key art, if available.")
-    printing_count: int = Field(description="Total number of distinct printings (card × edition × foiling) in this set.")
+    set_type: str = Field(description="Category: booster, deck, or promo.")
+    printing_count: int = Field(description="Total number of distinct printings (card x edition x foiling) in this set.")
     owned_count: int | None = Field(
         description="Number of those printings the authenticated user owns at least one copy of. "
                     "Null when the request is unauthenticated."

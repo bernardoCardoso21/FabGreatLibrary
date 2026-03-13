@@ -94,6 +94,7 @@ class Set(Base):
     # Stable unique_id from the-fab-cube dataset; used as upsert key during imports
     source_id: Mapped[str | None] = mapped_column(String(21), nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    set_type: Mapped[str] = mapped_column(String(16), nullable=False, default="booster", index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now
     )

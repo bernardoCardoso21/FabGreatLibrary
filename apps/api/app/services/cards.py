@@ -13,8 +13,9 @@ from app.db.models import Card, OwnedPrinting, Printing, Set
 async def list_sets_with_counts(
     session: AsyncSession,
     user_id: uuid.UUID | None = None,
+    set_type: str | None = None,
 ) -> list[dict]:
-    """Return all sets ordered by name, annotated with printing and ownership counts.
+    """Return sets ordered by name, annotated with printing and ownership counts.
 
     Two aggregate queries run after the initial set fetch: one counts all
     printings per set, and a second (only when ``user_id`` is provided) counts
@@ -25,12 +26,17 @@ async def list_sets_with_counts(
         session: Active async database session.
         user_id: If provided, each entry includes ``owned_count`` for this user.
             Pass None for unauthenticated callers — ``owned_count`` will be None.
+        set_type: If provided, filter to sets of this category (booster, deck, promo).
 
     Returns:
         List of dicts with keys ``set`` (Set ORM object), ``printing_count`` (int),
         and ``owned_count`` (int or None).
     """
-    sets = list((await session.execute(select(Set).order_by(Set.name))).scalars())
+    stmt = select(Set)
+    if set_type:
+        stmt = stmt.where(Set.set_type == set_type)
+    stmt = stmt.order_by(Set.name)
+    sets = list((await session.execute(stmt)).scalars())
     if not sets:
         return []
 

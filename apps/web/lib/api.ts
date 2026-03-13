@@ -81,8 +81,9 @@ export function apiRegister(email: string, password: string): Promise<TokenRespo
 
 // ── Sets ──────────────────────────────────────────────────────────────────────
 
-export function apiGetSets(token?: string | null): Promise<SetSummary[]> {
-  return request<SetSummary[]>('/sets', {}, token)
+export function apiGetSets(token?: string | null, setType?: string): Promise<SetSummary[]> {
+  const params = setType ? `?set_type=${setType}` : ''
+  return request<SetSummary[]>(`/sets${params}`, {}, token)
 }
 
 export function apiGetSetPrintings(

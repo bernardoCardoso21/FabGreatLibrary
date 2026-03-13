@@ -1,23 +1,63 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiGetSets, type SetSummary } from '@/lib/api'
 import { useTokenValue } from '@/lib/auth'
 
-export default function SetsPage() {
-  const token = useTokenValue()
+const CATEGORIES = [
+  { key: 'booster', label: 'Booster Sets', description: 'Main expansion sets' },
+  { key: 'deck', label: 'Decks', description: 'Pre-constructed and starter decks' },
+  { key: 'promo', label: 'Promos', description: 'Promotional and prize cards' },
+] as const
+
+function CategoryPicker({ sets }: { sets: SetSummary[] }) {
+  const counts = { booster: 0, deck: 0, promo: 0 } as Record<string, number>
+  for (const s of sets) {
+    counts[s.set_type] = (counts[s.set_type] ?? 0) + 1
+  }
+
+  return (
+    <main className="mx-auto max-w-7xl p-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold">Browse Sets</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Choose a category to explore</p>
+      </div>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {CATEGORIES.map(cat => (
+          <Link key={cat.key} href={`/sets?type=${cat.key}`}>
+            <Card className="cursor-pointer transition-shadow hover:shadow-md h-full">
+              <CardHeader>
+                <CardTitle className="text-xl">{cat.label}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{cat.description}</p>
+                <p className="mt-2 text-2xl font-semibold">{counts[cat.key] ?? 0}</p>
+                <p className="text-xs text-muted-foreground">sets</p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </main>
+  )
+}
+
+function SetGrid({ type, token }: { type: string; token: string | null }) {
+  const label = CATEGORIES.find(c => c.key === type)?.label ?? 'Sets'
 
   const { data: sets, isLoading, error } = useQuery<SetSummary[]>({
-    queryKey: ['sets', token],
-    queryFn: () => apiGetSets(token),
+    queryKey: ['sets', token, type],
+    queryFn: () => apiGetSets(token, type),
   })
 
   if (isLoading) {
     return (
       <main className="mx-auto max-w-7xl p-8">
-        <p className="text-muted-foreground">Loading sets…</p>
+        <p className="text-muted-foreground">Loading sets...</p>
       </main>
     )
   }
@@ -33,7 +73,12 @@ export default function SetsPage() {
   return (
     <main className="mx-auto max-w-7xl p-8">
       <div className="mb-6 flex items-baseline justify-between">
-        <h1 className="text-3xl font-bold">Sets</h1>
+        <div className="flex items-baseline gap-3">
+          <Link href="/sets" className="text-sm text-muted-foreground hover:text-foreground">
+            &larr; All categories
+          </Link>
+          <h1 className="text-3xl font-bold">{label}</h1>
+        </div>
         <p className="text-sm text-muted-foreground">{sets?.length ?? 0} sets</p>
       </div>
       {sets?.length === 0 ? (
@@ -79,5 +124,47 @@ export default function SetsPage() {
       </div>
       )}
     </main>
+  )
+}
+
+function SetsPageInner() {
+  const token = useTokenValue()
+  const searchParams = useSearchParams()
+  const type = searchParams.get('type')
+
+  const { data: allSets, isLoading, error } = useQuery<SetSummary[]>({
+    queryKey: ['sets', token],
+    queryFn: () => apiGetSets(token),
+    enabled: !type,
+  })
+
+  if (type) {
+    return <SetGrid type={type} token={token} />
+  }
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto max-w-7xl p-8">
+        <p className="text-muted-foreground">Loading...</p>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="mx-auto max-w-7xl p-8">
+        <p className="text-destructive">Failed to load sets.</p>
+      </main>
+    )
+  }
+
+  return <CategoryPicker sets={allSets ?? []} />
+}
+
+export default function SetsPage() {
+  return (
+    <Suspense fallback={<main className="mx-auto max-w-7xl p-8"><p className="text-muted-foreground">Loading...</p></main>}>
+      <SetsPageInner />
+    </Suspense>
   )
 }

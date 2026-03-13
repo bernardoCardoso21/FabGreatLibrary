@@ -23,11 +23,12 @@ router = APIRouter(tags=["sets"])
     ),
 )
 async def get_sets(
+    set_type: str | None = Query(default=None, description="Filter by category: booster, deck, or promo."),
     current_user: User | None = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db),
 ):
     rows = await card_service.list_sets_with_counts(
-        db, user_id=current_user.id if current_user else None
+        db, user_id=current_user.id if current_user else None, set_type=set_type
     )
     return [
         SetSummary(
@@ -35,6 +36,7 @@ async def get_sets(
             code=row["set"].code,
             name=row["set"].name,
             image_url=row["set"].image_url,
+            set_type=row["set"].set_type,
             printing_count=row["printing_count"],
             owned_count=row["owned_count"],
         )
