@@ -77,6 +77,10 @@ web-dev: ## Run Next.js dev server (port 3000, hot-reload)
 web-build: ## Production build of the frontend
 	cd apps/web && npm run build
 
+.PHONY: e2e
+e2e: ## Run Playwright E2E tests
+	cd apps/web && npx playwright test
+
 # ── Convenience ────────────────────────────────────────────────────────────────
 .PHONY: install
 install: api-install web-install ## Install all dependencies (api + web)

@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.11.0] - 2026-03-12 — Playwright E2E tests
+
+### Added
+- Playwright E2E test suite (`apps/web/tests/e2e/`) with 14 browser-level tests across 5 files:
+  - `global-setup.ts` — authenticates as demo user, saves `storageState` for subsequent tests
+  - `auth.spec.ts` — register, demo login, logout
+  - `sets.spec.ts` — set grid loads, completion bars visible, click-through to set detail
+  - `collection.spec.ts` — +1 increment updates qty, bulk clear removes items
+  - `missing.spec.ts` — page loads with count, foiling filter, wishlist save/delete CRUD
+- `e2e` job in GitHub Actions CI — runs after backend + frontend jobs pass; full-stack (Postgres + API + built Next.js)
+- `make e2e` Makefile target
+- `test:e2e` npm script in `apps/web/package.json`
+
+### Fixed
+- `api.ts` `request()` helper now handles 204 No Content responses (was calling `res.json()` on empty body, breaking wishlist delete mutation)
+
+---
+
 ## [0.10.0] - 2026-03-12 — UI/UX
 
 ### Added

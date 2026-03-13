@@ -54,6 +54,7 @@ async function request<T>(
     const data = await res.json().catch(() => ({}))
     throw new Error(data.detail ?? `HTTP ${res.status}`)
   }
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
