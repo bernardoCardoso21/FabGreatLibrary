@@ -22,7 +22,11 @@ from app.schemas.auth import (
     UserResponse,
 )
 from app.services import auth as auth_svc
-from app.services.user import DuplicateEmailError, create_user, get_user_by_email
+from app.services.user import (
+    DuplicateEmailError,
+    create_user,
+    get_user_by_email,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

@@ -82,7 +82,7 @@ class TestGetSets:
         resp = await client.get("/sets")
         assert resp.status_code == 200
         entry = next(s for s in resp.json() if s["code"] == "CNT")
-        assert entry["printing_count"] == 2
+        assert entry["printing_count"] == 1
 
     async def test_owned_count_is_none_when_unauthenticated(self, client: AsyncClient, db):
         await _make_set(db, "UNA", "Unauth Set")
@@ -94,14 +94,17 @@ class TestGetSets:
 
     async def test_owned_count_when_authenticated(self, client: AsyncClient, db):
         set_ = await _make_set(db, "OWN", "Owned Set")
-        card = await _make_card(db, name="Owned Card")
+        card = await _make_card(db, name="Owned Card", card_type="Action")
         printing = await _make_printing(db, set_, card, "OWN-001-S")
 
         user = await _make_user(db, "own@example.com")
-        db.add(OwnedPrinting(user_id=user.id, printing_id=printing.id, qty=2))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=printing.id, qty=3))
         await db.flush()
 
-        resp = await client.get("/sets", headers=_auth_header(user))
+        resp = await client.get(
+            "/sets",
+            headers=_auth_header(user),
+        )
         assert resp.status_code == 200
         entry = next(s for s in resp.json() if s["code"] == "OWN")
         assert entry["owned_count"] == 1
@@ -137,6 +140,63 @@ class TestGetSets:
         codes = {s["code"] for s in resp.json()}
         assert "BT2" in codes
         assert "PR2" in codes
+
+    async def test_playset_hero_target_is_1(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "PHR", "Playset Hero Set")
+        hero = await _make_card(db, name="Ira", card_type="Hero", hero_class="Ninja")
+        p = await _make_printing(db, set_, hero, "PHR-001-S")
+
+        user = await _make_user(db, "hero@example.com")
+        db.add(OwnedPrinting(user_id=user.id, printing_id=p.id, qty=1))
+        await db.flush()
+
+        resp = await client.get(
+            "/sets",
+
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 200
+        entry = next(s for s in resp.json() if s["code"] == "PHR")
+        assert entry["printing_count"] == 1
+        assert entry["owned_count"] == 1
+
+    async def test_playset_non_hero_target_is_3(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "P3T", "Playset 3 Target")
+        card = await _make_card(db, name="Strike", card_type="Action")
+        p1 = await _make_printing(db, set_, card, "P3T-001-S")
+        p2 = await _make_printing(db, set_, card, "P3T-001-R", foiling="R")
+
+        user = await _make_user(db, "playset3@example.com")
+        db.add(OwnedPrinting(user_id=user.id, printing_id=p1.id, qty=2))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=p2.id, qty=1))
+        await db.flush()
+
+        resp = await client.get(
+            "/sets",
+
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 200
+        entry = next(s for s in resp.json() if s["code"] == "P3T")
+        assert entry["owned_count"] == 1
+
+    async def test_playset_non_hero_under_target(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "PUN", "Playset Under")
+        card = await _make_card(db, name="Block", card_type="Defense Reaction")
+        p = await _make_printing(db, set_, card, "PUN-001-S")
+
+        user = await _make_user(db, "under@example.com")
+        db.add(OwnedPrinting(user_id=user.id, printing_id=p.id, qty=2))
+        await db.flush()
+
+        resp = await client.get(
+            "/sets",
+
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 200
+        entry = next(s for s in resp.json() if s["code"] == "PUN")
+        assert entry["owned_count"] == 0
 
 
 # ── GET /sets/{set_id}/printings ──────────────────────────────────────────────
@@ -228,3 +288,78 @@ class TestGetSetPrintings:
         set_ = await _make_set(db, "LM1", "Limit Set")
         resp = await client.get(f"/sets/{set_.id}/printings", params={"page_size": 101})
         assert resp.status_code == 422
+
+
+# ── GET /sets/{set_id}/cards (playset mode) ──────────────────────────────────
+
+class TestGetSetCards:
+    async def test_groups_printings_by_card(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "PSC", "Playset Cards Set")
+        card = await _make_card(db, name="Grouped Card", card_type="Action")
+        await _make_printing(db, set_, card, "PSC-001-S", foiling="S")
+        await _make_printing(db, set_, card, "PSC-001-R", foiling="R")
+        await _make_printing(db, set_, card, "PSC-001-C", foiling="C")
+
+        resp = await client.get(f"/sets/{set_.id}/cards")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["items"][0]["name"] == "Grouped Card"
+        assert body["items"][0]["target"] == 3
+
+    async def test_hero_target_is_1(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "PHC", "Playset Hero Cards")
+        hero = await _make_card(db, name="Test Hero", card_type="Hero", hero_class="Ninja")
+        await _make_printing(db, set_, hero, "PHC-001-S")
+
+        resp = await client.get(f"/sets/{set_.id}/cards")
+        assert resp.status_code == 200
+        item = resp.json()["items"][0]
+        assert item["target"] == 1
+
+    async def test_owned_qty_aggregated(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "POQ", "Playset Owned Qty")
+        card = await _make_card(db, name="Owned Card", card_type="Action")
+        p1 = await _make_printing(db, set_, card, "POQ-001-S")
+        p2 = await _make_printing(db, set_, card, "POQ-001-R", foiling="R")
+
+        user = await _make_user(db, "pqty@example.com")
+        db.add(OwnedPrinting(user_id=user.id, printing_id=p1.id, qty=2))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=p2.id, qty=1))
+        await db.flush()
+
+        resp = await client.get(
+            f"/sets/{set_.id}/cards",
+            headers=_auth_header(user),
+        )
+        assert resp.status_code == 200
+        item = resp.json()["items"][0]
+        assert item["owned_qty"] == 3
+        assert item["target"] == 3
+
+    async def test_owned_qty_null_unauthenticated(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "PNU", "Playset Null")
+        card = await _make_card(db, name="Null Card", card_type="Action")
+        await _make_printing(db, set_, card, "PNU-001-S")
+
+        resp = await client.get(f"/sets/{set_.id}/cards")
+        assert resp.status_code == 200
+        assert resp.json()["items"][0]["owned_qty"] is None
+
+    async def test_unknown_set_returns_404(self, client: AsyncClient):
+        import uuid
+        resp = await client.get(f"/sets/{uuid.uuid4()}/cards")
+        assert resp.status_code == 404
+
+    async def test_filter_by_name(self, client: AsyncClient, db):
+        set_ = await _make_set(db, "PFN", "Playset Filter Name")
+        c1 = await _make_card(db, name="Alpha Strike", card_type="Action")
+        c2 = await _make_card(db, name="Beta Block", card_type="Defense Reaction")
+        await _make_printing(db, set_, c1, "PFN-001-S")
+        await _make_printing(db, set_, c2, "PFN-002-S")
+
+        resp = await client.get(f"/sets/{set_.id}/cards", params={"q": "Alpha"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["total"] == 1
+        assert body["items"][0]["name"] == "Alpha Strike"

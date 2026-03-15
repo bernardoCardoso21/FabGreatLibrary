@@ -10,30 +10,17 @@ export type SetSummary       = components['schemas']['SetSummary']
 export type CardListItem     = components['schemas']['CardListItem']
 export type PrintingWithCard = components['schemas']['PrintingWithCard']
 export type PaginatedPrintings = components['schemas']['PaginatedPrintings']
-export type OwnedPrintingOut = components['schemas']['OwnedPrintingOut']
 export type ItemResult       = components['schemas']['ItemResult']
 export type BulkAction       = components['schemas']['BulkAction']
 export type BulkItem         = components['schemas']['BulkItemRequest']
-export type WishlistFilter   = components['schemas']['WishlistFilter']
-export type WishlistOut      = components['schemas']['WishlistOut']
+export type PlaysetCardItem  = components['schemas']['PlaysetCardItem']
+export type PaginatedPlaysetCards = components['schemas']['PaginatedPlaysetCards']
 
 // ── Frontend-only query param groupings (not backend schemas) ─────────────────
 
-export interface PrintingFilters {
+export interface PlaysetFilters {
   q?: string
-  foiling?: string
   rarity?: string
-  page?: number
-  page_size?: number
-}
-
-export interface MissingFilters {
-  set_id?: string
-  card_id?: string
-  edition?: string
-  foiling?: string
-  rarity?: string
-  artists?: string
   page?: number
   page_size?: number
 }
@@ -51,6 +38,10 @@ async function request<T>(
   }
   const res = await fetch(`${BASE}${path}`, { ...opts, headers })
   if (!res.ok) {
+    if (res.status === 401 && token) {
+      const { clearToken } = await import('@/lib/auth')
+      clearToken()
+    }
     const data = await res.json().catch(() => ({}))
     throw new Error(data.detail ?? `HTTP ${res.status}`)
   }
@@ -81,33 +72,30 @@ export function apiRegister(email: string, password: string): Promise<TokenRespo
 
 // ── Sets ──────────────────────────────────────────────────────────────────────
 
-export function apiGetSets(token?: string | null, setType?: string): Promise<SetSummary[]> {
-  const params = setType ? `?set_type=${setType}` : ''
-  return request<SetSummary[]>(`/sets${params}`, {}, token)
+export function apiGetSets(
+  token?: string | null,
+  setType?: string,
+): Promise<SetSummary[]> {
+  const params = new URLSearchParams()
+  if (setType) params.set('set_type', setType)
+  const qs = params.toString()
+  return request<SetSummary[]>(`/sets${qs ? `?${qs}` : ''}`, {}, token)
 }
 
-export function apiGetSetPrintings(
+export function apiGetSetCards(
   setId: string,
-  filters: PrintingFilters = {},
-): Promise<PaginatedPrintings> {
+  filters: PlaysetFilters = {},
+  token?: string | null,
+): Promise<PaginatedPlaysetCards> {
   const params = new URLSearchParams()
   if (filters.q) params.set('q', filters.q)
-  if (filters.foiling) params.set('foiling', filters.foiling)
   if (filters.rarity) params.set('rarity', filters.rarity)
   params.set('page', String(filters.page ?? 1))
   params.set('page_size', String(filters.page_size ?? 20))
-  return request<PaginatedPrintings>(`/sets/${setId}/printings?${params}`)
+  return request<PaginatedPlaysetCards>(`/sets/${setId}/cards?${params}`, {}, token)
 }
 
 // ── Collection ────────────────────────────────────────────────────────────────
-
-export function apiGetCollectionSummary(
-  token: string,
-  setId?: string,
-): Promise<OwnedPrintingOut[]> {
-  const qs = setId ? `?set_id=${setId}` : ''
-  return request<OwnedPrintingOut[]>(`/collection/summary${qs}`, {}, token)
-}
 
 export function apiUpsertItem(
   token: string,
@@ -127,41 +115,4 @@ export function apiBulkApply(token: string, items: BulkItem[]): Promise<ItemResu
     { method: 'POST', body: JSON.stringify({ items }), headers: { 'Content-Type': 'application/json' } },
     token,
   )
-}
-
-// ── Missing ────────────────────────────────────────────────────────────────
-
-export function apiGetMissing(token: string, filters: MissingFilters = {}): Promise<PaginatedPrintings> {
-  const params = new URLSearchParams()
-  if (filters.set_id) params.set('set_id', filters.set_id)
-  if (filters.card_id) params.set('card_id', filters.card_id)
-  if (filters.edition) params.set('edition', filters.edition)
-  if (filters.foiling) params.set('foiling', filters.foiling)
-  if (filters.rarity) params.set('rarity', filters.rarity)
-  if (filters.artists) params.set('artists', filters.artists)
-  params.set('page', String(filters.page ?? 1))
-  params.set('page_size', String(filters.page_size ?? 20))
-  return request<PaginatedPrintings>(`/missing?${params}`, {}, token)
-}
-
-// ── Wishlists ──────────────────────────────────────────────────────────────
-
-export function apiGetWishlists(token: string): Promise<WishlistOut[]> {
-  return request<WishlistOut[]>('/wishlists', {}, token)
-}
-
-export function apiCreateWishlist(
-  token: string,
-  name: string,
-  filter_json: WishlistFilter,
-): Promise<WishlistOut> {
-  return request<WishlistOut>(
-    '/wishlists',
-    { method: 'POST', body: JSON.stringify({ name, filter_json }), headers: { 'Content-Type': 'application/json' } },
-    token,
-  )
-}
-
-export function apiDeleteWishlist(token: string, id: string): Promise<void> {
-  return request<void>(`/wishlists/${id}`, { method: 'DELETE' }, token)
 }

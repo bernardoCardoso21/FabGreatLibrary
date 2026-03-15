@@ -139,3 +139,4 @@ class TestMe:
             "/auth/me", headers={"Authorization": "Bearer garbage"}
         )
         assert resp.status_code == 401
+

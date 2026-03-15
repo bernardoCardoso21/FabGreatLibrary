@@ -4,7 +4,7 @@
 
 FabGreat Library is a full-stack **Flesh & Blood TCG collection tracker** — a personal portfolio project.
 
-Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, manage their collection via single-click increment or atomic bulk updates, and browse missing printings with saved wishlist filters.
+Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, and manage their collection via single-click increment or atomic bulk updates.
 
 **Architecture:** React frontend (Next.js) talks to a FastAPI REST backend over JSON. The backend is the single source of truth — TypeScript types are generated from its OpenAPI schema. PostgreSQL is the only datastore; everything is async end-to-end.
 
@@ -34,7 +34,7 @@ apps/api/                  FastAPI backend
       deps.py              get_current_user, get_optional_user FastAPI deps
     db/
       base.py              SQLAlchemy declarative Base
-      models.py            All ORM models (7 tables)
+      models.py            All ORM models (5 tables)
       session.py           AsyncSessionLocal, get_db dependency
     routers/
       auth.py              /auth/* — register, token, refresh, logout, me
@@ -42,19 +42,15 @@ apps/api/                  FastAPI backend
       cards.py             /cards, /cards/{id}
       search.py            /search/printings
       collection.py        /collection/summary, /collection/items, /collection/bulk
-      missing.py           /missing — unowned printings (filtered, paginated)
-      wishlist.py          /wishlists — CRUD; 402 on free-tier limit
     schemas/
       auth.py              Pydantic schemas for auth endpoints
       cards.py             SetOut, SetSummary, CardListItem, CardDetail, PrintingWithCard, Paginated*
       collection.py        OwnedPrintingOut, UpsertItemRequest, BulkRequest, ItemResult
-      wishlist.py          WishlistFilter, WishlistCreate, WishlistOut
     services/
       user.py              create_user, get_user_by_email
       auth.py              create/use/revoke refresh tokens
       cards.py             list_sets_with_counts, list_cards, list_printings, get_card, get_set
-      collection.py        get_collection_summary, upsert_item, bulk_apply, get_missing_printings
-      wishlist.py          create_wishlist, list_wishlists, delete_wishlist (enforces free-tier limit)
+      collection.py        get_collection_summary, upsert_item, bulk_apply
   alembic/                 migrations
   scripts/
     import_cards.py        Downloads + upserts the-fab-cube dataset
@@ -67,8 +63,6 @@ apps/api/                  FastAPI backend
     test_search.py
     test_collection.py
     test_constraints.py
-    test_wishlists.py
-    test_missing.py
 
 apps/web/                  Next.js 16 (App Router)
   app/
@@ -78,8 +72,6 @@ apps/web/                  Next.js 16 (App Router)
     sets/
       page.tsx             Set grid — completion bars when authenticated
       [id]/page.tsx        Printings table — search/filter, +1 increment, bulk actions
-    missing/
-      page.tsx             Missing printings — filters, table, save/load/delete wishlist
     layout.tsx             Root layout wrapping Providers + Navbar
     globals.css
   components/
@@ -87,7 +79,7 @@ apps/web/                  Next.js 16 (App Router)
     providers.tsx          QueryClientProvider wrapper ('use client')
     ui/                    shadcn/ui — badge, card, button, checkbox, input
   lib/
-    api.ts                 Typed API client — re-exports generated types, contains 11 API functions
+    api.ts                 Typed API client — re-exports generated types, contains 8 API functions
     auth.ts                Token helpers — getToken / setToken / clearToken (localStorage)
 
 packages/types/            Generated TS types from OpenAPI (do not edit by hand)
@@ -171,11 +163,11 @@ cd packages\types; npx openapi-typescript openapi.json -o index.ts
 
 ### TypeScript (frontend)
 
-- **Do not define manual interfaces for backend types.** Use generated types from `@fabgreat/types` (re-exported via `apps/web/lib/api.ts`). Only `PrintingFilters` and `MissingFilters` (frontend-only query param groupings) live in `api.ts`.
+- **Do not define manual interfaces for backend types.** Use generated types from `@fabgreat/types` (re-exported via `apps/web/lib/api.ts`). Only `PlaysetFilters` (frontend-only query param grouping) lives in `api.ts`.
 - **`'use client'`** directive required on any component that uses hooks, browser APIs, or event handlers.
 - **Token reads inside `useEffect`** — never read `localStorage` at module level or during render; SSR will break.
 - **Next.js 16 dynamic params** are `Promise<{id: string}>` — unwrap with `use(params)` from React 19.
-- **Query keys:** `['sets', token]`, `['set-printings', setId, filters]`, `['collection', setId]`, `['missing', filters]`, `['wishlists']`.
+- **Query keys:** `['sets', token]`, `['set-printings', setId, filters]`, `['collection', setId]`.
 - **After any mutation** that changes ownership: invalidate `['collection', setId]` and `['sets']` so completion bars update.
 
 ### General
@@ -190,8 +182,6 @@ cd packages\types; npx openapi-typescript openapi.json -o index.ts
 - Ownership is tracked by `(user_id, printing_id)` — unique constraint in DB (Strategy B: foiling is encoded in the Printing row itself).
 - `qty` must be ≥ 1 when a row exists; setting `qty = 0` **deletes** the row — enforced in service layer.
 - `qty` may never go negative.
-- Free tier: maximum **1 saved wishlist** per user — enforced in the service layer, not the DB. Returns HTTP 402.
-- Wishlist stores a `filter_json` blob (set_id, traits, etc.) plus a name.
 - No condition tracking — quantity only.
 
 ---
@@ -200,7 +190,6 @@ cd packages\types; npx openapi-typescript openapi.json -o index.ts
 
 ```
 users ──< refresh_tokens
-users ──< wishlists
 users ──< owned_printings >── printings >── cards
                                printings >── sets
 ```
@@ -234,10 +223,6 @@ users ──< owned_printings >── printings >── cards
 | GET | `/collection/summary` | Bearer | Owned printings with detail |
 | POST | `/collection/items` | Bearer | Upsert single item qty |
 | POST | `/collection/bulk` | Bearer | Atomic bulk actions |
-| GET | `/missing` | Bearer | Unowned printings — filtered by set_id, card_id, edition, foiling, rarity, artists |
-| POST | `/wishlists` | Bearer | Create wishlist; 402 if one already exists |
-| GET | `/wishlists` | Bearer | List user's wishlists |
-| DELETE | `/wishlists/{id}` | Bearer | Delete wishlist; 404 if not found or wrong user |
 
 Interactive docs: **http://localhost:8000/docs**
 

@@ -30,7 +30,7 @@ class ItemResult(BaseModel):
 class BulkAction(str, Enum):
     set_qty = "set_qty"
     increment = "increment"
-    mark_playset = "mark_playset"
+    decrement = "decrement"
     clear = "clear"
 
 
@@ -41,7 +41,7 @@ class BulkItemRequest(BaseModel):
             "Action to perform: "
             "'set_qty' sets an exact quantity (requires qty); "
             "'increment' adds 1 to the current quantity; "
-            "'mark_playset' sets quantity to 3; "
+            "'decrement' subtracts 1 (removes if qty reaches 0); "
             "'clear' removes the printing from the collection."
         )
     )

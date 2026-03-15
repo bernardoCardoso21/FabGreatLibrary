@@ -6,13 +6,33 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { apiGetSets, type SetSummary } from '@/lib/api'
-import { useTokenValue } from '@/lib/auth'
+import { useRequireAuth } from '@/lib/auth'
 
 const CATEGORIES = [
   { key: 'booster', label: 'Booster Sets', description: 'Main expansion sets' },
   { key: 'deck', label: 'Decks', description: 'Pre-constructed and starter decks' },
   { key: 'promo', label: 'Promos', description: 'Promotional and prize cards' },
 ] as const
+
+function CompletionBar({ set }: { set: SetSummary }) {
+  const pct = set.printing_count > 0
+    ? Math.min(100, ((set.owned_count ?? 0) / set.printing_count) * 100)
+    : 0
+
+  return (
+    <div className="space-y-1">
+      <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {set.owned_count} / {set.printing_count} cards
+      </p>
+    </div>
+  )
+}
 
 function CategoryPicker({ sets }: { sets: SetSummary[] }) {
   const counts = { booster: 0, deck: 0, promo: 0 } as Record<string, number>
@@ -46,7 +66,7 @@ function CategoryPicker({ sets }: { sets: SetSummary[] }) {
   )
 }
 
-function SetGrid({ type, token }: { type: string; token: string | null }) {
+function SetGrid({ type, token }: { type: string; token: string }) {
   const label = CATEGORIES.find(c => c.key === type)?.label ?? 'Sets'
 
   const { data: sets, isLoading, error } = useQuery<SetSummary[]>({
@@ -72,7 +92,7 @@ function SetGrid({ type, token }: { type: string; token: string | null }) {
 
   return (
     <main className="mx-auto max-w-7xl p-8">
-      <div className="mb-6 flex items-baseline justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-baseline gap-3">
           <Link href="/sets" className="text-sm text-muted-foreground hover:text-foreground">
             &larr; All categories
@@ -100,22 +120,10 @@ function SetGrid({ type, token }: { type: string; token: string | null }) {
                 </div>
               </CardHeader>
               <CardContent>
-                {token && set.owned_count !== null ? (
-                  <div className="space-y-1">
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all"
-                        style={{
-                          width: `${Math.min(100, (set.owned_count / set.printing_count) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {set.owned_count} / {set.printing_count} owned
-                    </p>
-                  </div>
+                {set.owned_count !== null ? (
+                  <CompletionBar set={set} />
                 ) : (
-                  <p className="text-xs text-muted-foreground">{set.printing_count} printings</p>
+                  <p className="text-xs text-muted-foreground">{set.printing_count} cards</p>
                 )}
               </CardContent>
             </Card>
@@ -128,15 +136,18 @@ function SetGrid({ type, token }: { type: string; token: string | null }) {
 }
 
 function SetsPageInner() {
-  const token = useTokenValue()
+  const token = useRequireAuth()
   const searchParams = useSearchParams()
+
   const type = searchParams.get('type')
 
   const { data: allSets, isLoading, error } = useQuery<SetSummary[]>({
     queryKey: ['sets', token],
     queryFn: () => apiGetSets(token),
-    enabled: !type,
+    enabled: !type && !!token,
   })
+
+  if (!token) return null
 
   if (type) {
     return <SetGrid type={type} token={token} />

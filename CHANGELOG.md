@@ -9,25 +9,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.11.0] - 2026-03-12 — Playwright E2E tests
 
 ### Added
-- Playwright E2E test suite (`apps/web/tests/e2e/`) with 14 browser-level tests across 5 files:
+- Playwright E2E test suite (`apps/web/tests/e2e/`) with browser-level tests:
   - `global-setup.ts` — authenticates as demo user, saves `storageState` for subsequent tests
   - `auth.spec.ts` — register, demo login, logout
   - `sets.spec.ts` — set grid loads, completion bars visible, click-through to set detail
   - `collection.spec.ts` — +1 increment updates qty, bulk clear removes items
-  - `missing.spec.ts` — page loads with count, foiling filter, wishlist save/delete CRUD
 - `e2e` job in GitHub Actions CI — runs after backend + frontend jobs pass; full-stack (Postgres + API + built Next.js)
 - `make e2e` Makefile target
 - `test:e2e` npm script in `apps/web/package.json`
 
 ### Fixed
-- `api.ts` `request()` helper now handles 204 No Content responses (was calling `res.json()` on empty body, breaking wishlist delete mutation)
+- `api.ts` `request()` helper now handles 204 No Content responses
 
 ---
 
 ## [0.10.0] - 2026-03-12 — UI/UX
 
 ### Added
-- Card image thumbnails in printings tables (set detail + missing pages); lazy-loaded with placeholder fallback
+- Card image thumbnails in printings tables (set detail page); lazy-loaded with placeholder fallback
 - Landing page hero section with live stats bar (fetches `/sets` to show real set and printing counts)
 - Dark mode toggle in navbar; persisted to `localStorage`, inline script prevents flash of wrong theme
 - Dark-mode-aware badge colors for foiling and rarity badges across all tables
@@ -57,7 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `002-monorepo.md` — why a single repo over separate frontend/backend repos
   - `003-jwt-refresh-tokens.md` — why opaque DB-stored refresh tokens over stateless JWT refresh
   - `004-async-stack.md` — why FastAPI + SQLAlchemy async + asyncpg over Flask/Django
-- Google-style docstrings on all public functions in `services/` (user, auth, cards, collection, wishlist)
+- Google-style docstrings on all public functions in `services/` (user, auth, cards, collection)
 - This `CHANGELOG.md`
 
 ---
@@ -80,25 +79,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.5.0] - 2026-03-03 — Missing printings & wishlists
-
-### Added
-- `GET /missing` — paginated printings the authenticated user does not yet own; filterable by `set_id`, `card_id`, `edition`, `foiling`, `rarity`, `artists`
-- `POST /wishlists` — save a named filter set; returns HTTP 402 if the free-tier limit (1 wishlist per user) is already reached
-- `GET /wishlists` — list the current user's wishlists
-- `DELETE /wishlists/{id}` — delete a wishlist, re-opening the free-tier slot
-- `app/missing/page.tsx` — missing-printings page with set/foiling/rarity filters, paginated table, and wishlist save/load/delete panel
-- "Missing" link in the navbar
-- 17 new backend tests (11 wishlist + 6 missing); total 92 passing
-
----
-
 ## [0.4.0] - 2026-03-03 — Collection
 
 ### Added
 - `GET /collection/summary` — owned printings with full card and set detail; `?set_id=` scopes to one set
 - `POST /collection/items` — upsert a single `{printing_id, qty}` pair; `qty=0` deletes the row
-- `POST /collection/bulk` — atomic batch with actions `set_qty`, `increment`, `mark_playset` (qty=3), and `clear`; all printing IDs are validated before any row is touched
+- `POST /collection/bulk` — atomic batch with actions `set_qty`, `increment`, `decrement`, and `clear`; all printing IDs are validated before any row is touched
 - `app/login/page.tsx` and `app/register/page.tsx` — auth forms that store the access token and redirect to `/sets`
 - `app/sets/page.tsx` — set grid with per-set completion bars (owned / total printings)
 - `app/sets/[id]/page.tsx` — printings table with debounced name search, `+1` increment button, multi-select checkboxes, and bulk-action toolbar
@@ -149,11 +135,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.0.2] - 2026-03-03 — Domain models
 
 ### Added
-- SQLAlchemy 2.0 async ORM models: `users`, `sets`, `cards`, `printings`, `owned_printings`, `wishlists`, `refresh_tokens`
+- SQLAlchemy 2.0 async ORM models: `users`, `sets`, `cards`, `printings`, `owned_printings`, `refresh_tokens`
 - Alembic configured with async `env.py`; initial migration applied
 - `scripts/seed.py` (`make seed`) — idempotent dev seed data (one user, one set, one card, one printing)
-- `services/wishlist.py` — `create_wishlist` with free-tier limit enforcement; `WishlistLimitError`
-
 ---
 
 ## [0.0.1] - 2026-03-03 — Scaffold

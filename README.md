@@ -9,7 +9,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
 
-Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, manage their collection via single-click increment or atomic bulk updates, and browse missing printings with saved wishlist filters.
+Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings), track which copies they own down to foiling and edition, and manage their collection via single-click increment or atomic bulk updates.
 
 **Full stack — backend and frontend both complete.**
 
@@ -24,8 +24,6 @@ Users can browse the full card catalog (92 sets, 4,200+ cards, 14,000+ printings
 - **Server-state management** — TanStack Query (React Query v5) handles caching and invalidation; after any mutation the affected collection and set completion bars refresh automatically.
 - **OpenAPI-first contract** — backend is the single source of truth; TypeScript types are generated from the OpenAPI schema, eliminating manual type duplication.
 - **Strict test isolation** — each test opens a transaction that is rolled back on teardown; `db.commit` is patched to `db.flush` so route-level commits stay within the test transaction and never touch the real DB state.
-- **Free-tier gate** — the wishlist limit (max 1 per user) is enforced in the service layer and surfaces as HTTP 402; deleting the existing wishlist re-opens the slot.
-
 ---
 
 ## Architecture
@@ -110,13 +108,6 @@ erDiagram
         int qty
         datetime updated_at
     }
-    wishlists {
-        uuid id PK
-        uuid user_id FK
-        string name
-        json filter_json
-        datetime created_at
-    }
     refresh_tokens {
         uuid id PK
         string token UK
@@ -127,7 +118,6 @@ erDiagram
     }
 
     users ||--o{ owned_printings : owns
-    users ||--o{ wishlists : has
     users ||--o{ refresh_tokens : has
     sets ||--o{ printings : contains
     cards ||--o{ printings : "printed as"
@@ -173,19 +163,7 @@ erDiagram
 |---|---|---|
 | GET | `/collection/summary` | Owned printings with full card/set detail; `?set_id=` to scope to one set |
 | POST | `/collection/items` | Upsert `{printing_id, qty}` — qty 0 deletes the row |
-| POST | `/collection/bulk` | Atomic batch with actions: `set_qty` · `increment` · `mark_playset` (qty=3) · `clear` |
-
-</details>
-
-<details>
-<summary><strong>Missing &amp; Wishlists (requires auth)</strong></summary>
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/missing` | Paginated printings not yet owned; filterable by `set_id`, `card_id`, `edition`, `foiling`, `rarity`, `artists` |
-| POST | `/wishlists` | Save a named filter (returns 402 if one already exists — free tier limit) |
-| GET | `/wishlists` | List saved wishlists for the current user |
-| DELETE | `/wishlists/{id}` | Delete a wishlist (enables creating a new one) |
+| POST | `/collection/bulk` | Atomic batch with actions: `set_qty` · `increment` · `decrement` · `clear` |
 
 </details>
 
@@ -207,7 +185,7 @@ Interactive docs available at **http://localhost:8000/docs** when running locall
 | Styling | Tailwind CSS v4 + shadcn/ui v3 |
 | Data fetching | TanStack Query v5 |
 | Types | Generated from OpenAPI via openapi-typescript |
-| Testing | pytest-asyncio — 92 tests |
+| Testing | pytest-asyncio — 83 tests |
 | Containerisation | Docker Compose |
 
 ---
@@ -247,21 +225,20 @@ FabGreatLibrary/
 │   ├── api/                        FastAPI backend
 │   │   ├── app/
 │   │   │   ├── core/               Config, JWT, FastAPI dependencies
-│   │   │   ├── db/                 ORM models (7 tables), async session
-│   │   │   ├── routers/            auth · sets · cards · search · collection · missing · wishlist
+│   │   │   ├── db/                 ORM models (5 tables), async session
+│   │   │   ├── routers/            auth · sets · cards · search · collection
 │   │   │   ├── schemas/            Pydantic request/response models
 │   │   │   └── services/           Business logic — no SQL in routers
 │   │   ├── scripts/
 │   │   │   ├── import_cards.py     Dataset importer (idempotent upsert)
 │   │   │   └── seed.py             Dev seed data
 │   │   ├── alembic/                DB migrations
-│   │   └── tests/                  92 tests, per-test transaction rollback
+│   │   └── tests/                  83 tests, per-test transaction rollback
 │   └── web/                        Next.js 16 (App Router)
 │       ├── app/
 │       │   ├── page.tsx            Landing page
 │       │   ├── login/page.tsx      Login form
 │       │   ├── register/page.tsx   Registration form
-│       │   ├── missing/page.tsx    Missing printings + wishlist panel
 │       │   └── sets/
 │       │       ├── page.tsx        Set grid with completion bars
 │       │       └── [id]/page.tsx   Printings table, +1 increment, bulk actions
@@ -270,7 +247,7 @@ FabGreatLibrary/
 │       │   ├── providers.tsx       TanStack Query provider
 │       │   └── ui/                 shadcn/ui components
 │       └── lib/
-│           ├── api.ts              API client — re-exports generated types + 11 fetch functions
+│           ├── api.ts              API client — re-exports generated types + 8 fetch functions
 │           └── auth.ts             Token helpers (localStorage)
 ├── packages/types/                 openapi.json + generated index.ts (source of truth for TS types)
 ├── docs/
@@ -288,11 +265,10 @@ FabGreatLibrary/
 | Phase | Status | Deliverable |
 |---|---|---|
 | 0 — Scaffold | ✅ | Monorepo, Docker, Makefile, FastAPI skeleton, Next.js landing page |
-| 1 — Domain | ✅ | ORM models, Alembic migrations, seed script, wishlist service |
+| 1 — Domain | ✅ | ORM models, Alembic migrations, seed script |
 | 2 — Auth | ✅ | Register, login, refresh token rotation, logout, `/me` |
 | 3 — Catalog | ✅ | `GET /cards`, `GET /cards/{id}`, `GET /sets` |
 | 4 — Browse | ✅ | Set printings, cross-set search, per-field filtering |
 | 5 — Collection | ✅ | Backend: summary, upsert, atomic bulk · Frontend: set grid, +1 increment, bulk select |
-| 6 — Missing / Wishlists | ✅ | `GET /missing`, wishlist CRUD (402 gate), missing page with save/load/delete |
 | 7 — Types | ✅ | openapi-typescript generates `packages/types/index.ts` from FastAPI schema; `api.ts` re-exports via `@fabgreat/types` alias — no manual type duplication |
 | Docs | ✅ | ADRs (`docs/adr/`), Google-style service docstrings, `CHANGELOG.md` |

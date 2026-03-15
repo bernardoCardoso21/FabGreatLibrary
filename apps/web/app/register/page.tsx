@@ -2,14 +2,19 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { apiRegister } from '@/lib/api'
-import { setToken } from '@/lib/auth'
+import { setToken, useTokenValue } from '@/lib/auth'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const existingToken = useTokenValue()
+
+  useEffect(() => {
+    if (existingToken) router.push('/sets')
+  }, [existingToken, router])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)

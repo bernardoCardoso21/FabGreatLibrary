@@ -2,34 +2,20 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
-import Link from 'next/link'
-import { use, useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { use, useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import {
   apiBulkApply,
-  apiGetCollectionSummary,
-  apiGetSetPrintings,
-  apiUpsertItem,
-  type PrintingFilters,
+  apiGetSetCards,
+  type PlaysetCardItem,
+  type PlaysetFilters,
 } from '@/lib/api'
-import { useTokenValue } from '@/lib/auth'
+import { useRequireAuth } from '@/lib/auth'
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
-const FOILING_LABEL: Record<string, string> = {
-  S: 'Standard',
-  R: 'Rainbow',
-  C: 'Cold',
-  G: 'Gold Cold',
-}
-const FOILING_CLASS: Record<string, string> = {
-  S: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  R: 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300',
-  C: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-  G: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-}
 const RARITY_LABEL: Record<string, string> = {
   C: 'Common',
   R: 'Rare',
@@ -48,22 +34,6 @@ const RARITY_CLASS: Record<string, string> = {
   T: 'bg-muted text-muted-foreground',
   P: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
 }
-const EDITION_LABEL: Record<string, string> = {
-  A: 'Alpha',
-  F: '1st Ed',
-  U: 'Unlimited',
-  N: '—',
-}
-
-function FoilingBadge({ code }: { code: string }) {
-  return (
-    <span
-      className={`rounded px-1.5 py-0.5 text-xs font-medium ${FOILING_CLASS[code] ?? 'bg-muted text-muted-foreground'}`}
-    >
-      {FOILING_LABEL[code] ?? code}
-    </span>
-  )
-}
 
 function RarityBadge({ code }: { code: string }) {
   return (
@@ -75,24 +45,40 @@ function RarityBadge({ code }: { code: string }) {
   )
 }
 
+// ── Pitch indicator ──────────────────────────────────────────────────────────
+
+const PITCH_CLASS: Record<number, string> = {
+  1: 'bg-red-500',
+  2: 'bg-yellow-500',
+  3: 'bg-blue-500',
+}
+
+function PitchDot({ pitch }: { pitch: number | null | undefined }) {
+  if (pitch == null) return null
+  return (
+    <span
+      className={`inline-block h-2.5 w-2.5 rounded-full ${PITCH_CLASS[pitch] ?? 'bg-muted'}`}
+      title={`Pitch ${pitch}`}
+    />
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20
 
 export default function SetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: setId } = use(params)
+  const router = useRouter()
   const queryClient = useQueryClient()
 
-  const token = useTokenValue()
+  const token = useRequireAuth()
 
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [foilingFilter, setFoilingFilter] = useState('')
   const [rarityFilter, setRarityFilter] = useState('')
-  const [selected, setSelected] = useState<Set<string>>(new Set())
 
-  // Debounce search input
   useEffect(() => {
     const t = setTimeout(() => {
       setDebouncedSearch(search)
@@ -101,116 +87,63 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
     return () => clearTimeout(t)
   }, [search])
 
-  const filters: PrintingFilters = {
+  const filters: PlaysetFilters = {
     page,
     page_size: PAGE_SIZE,
     ...(debouncedSearch && { q: debouncedSearch }),
-    ...(foilingFilter && { foiling: foilingFilter }),
     ...(rarityFilter && { rarity: rarityFilter }),
   }
 
-  const printingsQuery = useQuery({
-    queryKey: ['set-printings', setId, filters],
-    queryFn: () => apiGetSetPrintings(setId, filters),
-  })
-
-  const collectionQuery = useQuery({
-    queryKey: ['collection', setId],
-    queryFn: () => apiGetCollectionSummary(token!, setId),
+  const cardsQuery = useQuery({
+    queryKey: ['set-cards', setId, filters, token],
+    queryFn: () => apiGetSetCards(setId, filters, token),
     enabled: !!token,
   })
 
-  // Map printing.id → qty
-  const ownedMap = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const item of collectionQuery.data ?? []) {
-      m.set(item.printing.id, item.qty)
-    }
-    return m
-  }, [collectionQuery.data])
-
-  // +1 mutation
-  const incrementMutation = useMutation({
-    mutationFn: ({ printingId, qty }: { printingId: string; qty: number }) =>
-      apiUpsertItem(token!, printingId, qty),
+  const actionMutation = useMutation({
+    mutationFn: ({ printingId, action }: { printingId: string; action: 'increment' | 'decrement' }) =>
+      apiBulkApply(token!, [{ printing_id: printingId, action }]),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['collection', setId] })
+      queryClient.invalidateQueries({ queryKey: ['set-cards', setId] })
       queryClient.invalidateQueries({ queryKey: ['sets'] })
     },
   })
 
-  // Bulk mutation
-  const bulkMutation = useMutation({
-    mutationFn: (action: 'mark_playset' | 'clear') =>
-      apiBulkApply(
-        token!,
-        [...selected].map(id => ({ printing_id: id, action })),
-      ),
-    onSuccess: () => {
-      setSelected(new Set())
-      queryClient.invalidateQueries({ queryKey: ['collection', setId] })
-      queryClient.invalidateQueries({ queryKey: ['sets'] })
-    },
-  })
-
-  const items = printingsQuery.data?.items ?? []
-  const total = printingsQuery.data?.total ?? 0
+  const items = cardsQuery.data?.items ?? []
+  const total = cardsQuery.data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
-  const setInfo = items[0]?.set
-
-  function toggleSelect(id: string) {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  function toggleAll() {
-    if (selected.size === items.length && items.length > 0) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(items.map(p => p.id)))
-    }
-  }
+  const hasFilters = !!(debouncedSearch || rarityFilter)
 
   function changeFilter(setter: (v: string) => void, value: string) {
     setter(value)
     setPage(1)
-    setSelected(new Set())
   }
+
+  function clearFilters() {
+    setSearch('')
+    setRarityFilter('')
+    setPage(1)
+  }
+
+  if (!token) return null
 
   return (
     <main className="mx-auto max-w-7xl space-y-4 p-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/sets" className="hover:text-foreground">Sets</Link>
-        <span>/</span>
-        <span>{setInfo?.name ?? '…'}</span>
-        {setInfo && (
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">{setInfo.code}</span>
-        )}
+        <button onClick={() => router.back()} className="hover:text-foreground">
+          &larr; Back
+        </button>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <Input
-          placeholder="Search cards…"
+          placeholder="Search cards..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="h-8 w-52"
         />
-        <select
-          className="h-8 rounded-md border border-input bg-background px-3 text-sm"
-          value={foilingFilter}
-          onChange={e => changeFilter(setFoilingFilter, e.target.value)}
-        >
-          <option value="">All foilings</option>
-          {Object.entries(FOILING_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
         <select
           className="h-8 rounded-md border border-input bg-background px-3 text-sm"
           value={rarityFilter}
@@ -221,69 +154,30 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
             <option key={k} value={k}>{v}</option>
           ))}
         </select>
-        {(debouncedSearch || foilingFilter || rarityFilter) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8"
-            onClick={() => {
-              setSearch('')
-              setFoilingFilter('')
-              setRarityFilter('')
-              setPage(1)
-            }}
-          >
+        {hasFilters && (
+          <Button variant="ghost" size="sm" className="h-8" onClick={clearFilters}>
             Clear filters
           </Button>
         )}
       </div>
 
-      {/* Bulk action bar */}
-      {selected.size > 0 && token && (
-        <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2">
-          <span className="text-sm font-medium">{selected.size} selected</span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => bulkMutation.mutate('mark_playset')}
-            disabled={bulkMutation.isPending}
-          >
-            Mark Playset (3×)
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => bulkMutation.mutate('clear')}
-            disabled={bulkMutation.isPending}
-          >
-            Clear
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-            Deselect all
-          </Button>
-        </div>
-      )}
-
       {/* Table */}
-      {printingsQuery.isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
-      ) : printingsQuery.error ? (
-        <p className="text-destructive">Failed to load printings.</p>
+      {cardsQuery.isLoading ? (
+        <p className="text-muted-foreground">Loading...</p>
+      ) : cardsQuery.error ? (
+        <p className="text-destructive">Failed to load.</p>
       ) : items.length === 0 ? (
         <div className="rounded-lg border border-dashed py-12 text-center">
-          <p className="text-lg font-medium">No printings found</p>
-          {(debouncedSearch || foilingFilter || rarityFilter) ? (
+          <p className="text-lg font-medium">No cards found</p>
+          {hasFilters ? (
             <p className="mt-1 text-sm text-muted-foreground">
               Try adjusting your filters or{' '}
-              <button
-                className="underline hover:text-foreground"
-                onClick={() => { setSearch(''); setFoilingFilter(''); setRarityFilter(''); setPage(1) }}
-              >
+              <button className="underline hover:text-foreground" onClick={clearFilters}>
                 clear all filters
               </button>
             </p>
           ) : (
-            <p className="mt-1 text-sm text-muted-foreground">This set has no printings yet.</p>
+            <p className="mt-1 text-sm text-muted-foreground">This set has no cards yet.</p>
           )}
         </div>
       ) : (
@@ -291,105 +185,87 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/40">
               <tr>
-                {token && (
-                  <th className="w-10 px-3 py-2 text-left">
-                    <Checkbox
-                      checked={items.length > 0 && selected.size === items.length}
-                      onCheckedChange={toggleAll}
-                    />
-                  </th>
-                )}
                 <th className="px-3 py-2 text-left font-medium">Card</th>
                 <th className="px-3 py-2 text-left font-medium">Type</th>
-                <th className="px-3 py-2 text-left font-medium">Edition</th>
-                <th className="px-3 py-2 text-left font-medium">Foiling</th>
                 <th className="px-3 py-2 text-left font-medium">Rarity</th>
-                {token && <th className="w-16 px-3 py-2 text-center font-medium">Qty</th>}
-                {token && <th className="w-16 px-3 py-2 text-left font-medium" />}
+                <th className="w-32 px-3 py-2 text-center font-medium">Owned / Target</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map(printing => {
-                const qty = ownedMap.get(printing.id) ?? 0
+              {items.map(card => {
+                const owned = card.owned_qty ?? 0
+                const complete = owned >= card.target
                 const isPending =
-                  incrementMutation.isPending &&
-                  incrementMutation.variables?.printingId === printing.id
+                  actionMutation.isPending &&
+                  actionMutation.variables?.printingId === card.default_printing_id
                 return (
                   <tr
-                    key={printing.id}
-                    className={`hover:bg-muted/30 ${selected.has(printing.id) ? 'bg-muted/20' : ''}`}
+                    key={card.id}
+                    className={`hover:bg-muted/30 ${complete ? 'opacity-60' : ''}`}
                   >
-                    {token && (
-                      <td className="px-3 py-2">
-                        <Checkbox
-                          checked={selected.has(printing.id)}
-                          onCheckedChange={() => toggleSelect(printing.id)}
-                        />
-                      </td>
-                    )}
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-3">
-                        {printing.image_url ? (
+                        {card.image_url ? (
                           <Image
-                            src={printing.image_url}
-                            alt={printing.card.name}
-                            width={40}
-                            height={56}
+                            src={card.image_url}
+                            alt={card.name}
+                            width={160}
+                            height={224}
                             className="shrink-0 rounded object-cover"
                             unoptimized
                           />
                         ) : (
-                          <div className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
+                          <div className="flex h-[224px] w-[160px] shrink-0 items-center justify-center rounded bg-muted text-xs text-muted-foreground">
                             ?
                           </div>
                         )}
-                        <div>
-                          <div className="font-medium">{printing.card.name}</div>
-                          <div className="font-mono text-xs text-muted-foreground">
-                            {printing.printing_id}
-                          </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{card.name}</span>
+                          <PitchDot pitch={card.pitch} />
                         </div>
                       </div>
                     </td>
                     <td className="px-3 py-2 text-muted-foreground">
-                      {printing.card.hero_class ?? printing.card.card_type}
+                      {card.hero_class ?? card.card_type}
                     </td>
                     <td className="px-3 py-2">
-                      {EDITION_LABEL[printing.edition] ?? printing.edition}
+                      <RarityBadge code={card.rarity} />
                     </td>
                     <td className="px-3 py-2">
-                      <FoilingBadge code={printing.foiling} />
-                    </td>
-                    <td className="px-3 py-2">
-                      <RarityBadge code={printing.rarity} />
-                    </td>
-                    {token && (
-                      <td className="px-3 py-2 text-center font-mono">
-                        {qty > 0 ? (
-                          <span className="font-semibold">{qty}</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    )}
-                    {token && (
-                      <td className="px-3 py-2">
+                      <div className="flex items-center justify-center gap-2">
                         <Button
                           size="sm"
-                          variant={qty > 0 ? 'outline' : 'ghost'}
-                          className="h-7 px-2"
-                          disabled={isPending}
+                          variant="outline"
+                          className="h-7 w-7 p-0"
+                          disabled={isPending || owned === 0}
                           onClick={() =>
-                            incrementMutation.mutate({
-                              printingId: printing.id,
-                              qty: qty + 1,
+                            actionMutation.mutate({
+                              printingId: card.default_printing_id,
+                              action: 'decrement',
                             })
                           }
                         >
-                          +1
+                          -
                         </Button>
-                      </td>
-                    )}
+                        <span className={`font-mono min-w-[3rem] text-center ${complete ? 'text-green-600 font-semibold' : ''}`}>
+                          {owned} / {card.target}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 w-7 p-0"
+                          disabled={isPending || owned >= card.target}
+                          onClick={() =>
+                            actionMutation.mutate({
+                              printingId: card.default_printing_id,
+                              action: 'increment',
+                            })
+                          }
+                        >
+                          +
+                        </Button>
+                      </div>
+                    </td>
                   </tr>
                 )
               })}
@@ -402,7 +278,7 @@ export default function SetDetailPage({ params }: { params: Promise<{ id: string
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+            {(page - 1) * PAGE_SIZE + 1}--{Math.min(page * PAGE_SIZE, total)} of {total}
           </p>
           <div className="flex gap-2">
             <Button
