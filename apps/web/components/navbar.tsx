@@ -47,9 +47,6 @@ export function Navbar() {
               <Link href="/sets" className="text-sm text-muted-foreground hover:text-foreground">
                 My Collection
               </Link>
-              <Link href="/missing" className="text-sm text-muted-foreground hover:text-foreground">
-                Missing
-              </Link>
               <Button variant="outline" size="sm" onClick={logout}>
                 Log out
               </Button>

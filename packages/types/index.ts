@@ -101,11 +101,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Update user preferences
-         * @description Update the authenticated user's preferences (e.g. collection tracking mode).
-         */
-        patch: operations["update_me_auth_me_patch"];
+        patch?: never;
         trace?: never;
     };
     "/sets": {
@@ -288,70 +284,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/missing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List unowned printings
-         * @description Return a paginated list of printings that exist in the catalog but are not yet owned by the authenticated user. Supports the same filters as the set printings endpoint. Typically used to build a want list or identify collection gaps.
-         */
-        get: operations["get_missing_missing_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/wishlists": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List wishlists
-         * @description Return all wishlists belonging to the authenticated user, ordered by creation date.
-         */
-        get: operations["list_wishlists_wishlists_get"];
-        put?: never;
-        /**
-         * Create a wishlist
-         * @description Save a named filter as a wishlist. Free-tier users may only have **one** wishlist at a time. Delete the existing wishlist before creating a new one.
-         */
-        post: operations["create_wishlist_wishlists_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/wishlists/{wishlist_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Delete a wishlist
-         * @description Permanently delete a wishlist. This frees the slot so a new wishlist can be created.
-         */
-        delete: operations["delete_wishlist_wishlists__wishlist_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/health": {
         parameters: {
             query?: never;
@@ -401,7 +333,7 @@ export interface components {
          * BulkAction
          * @enum {string}
          */
-        BulkAction: "set_qty" | "increment" | "decrement" | "mark_playset" | "clear";
+        BulkAction: "set_qty" | "increment" | "decrement" | "clear";
         /** BulkItemRequest */
         BulkItemRequest: {
             /**
@@ -410,7 +342,7 @@ export interface components {
              * @description ID of the printing to act on.
              */
             printing_id: string;
-            /** @description Action to perform: 'set_qty' sets an exact quantity (requires qty); 'increment' adds 1 to the current quantity; 'decrement' subtracts 1 (removes if qty reaches 0); 'mark_playset' sets quantity to 3; 'clear' removes the printing from the collection. */
+            /** @description Action to perform: 'set_qty' sets an exact quantity (requires qty); 'increment' adds 1 to the current quantity; 'decrement' subtracts 1 (removes if qty reaches 0); 'clear' removes the printing from the collection. */
             action: components["schemas"]["BulkAction"];
             /**
              * Qty
@@ -809,12 +741,6 @@ export interface components {
              * @description Number of those printings the authenticated user owns at least one copy of. Null when the request is unauthenticated.
              */
             owned_count: number | null;
-            /**
-             * Collection Mode
-             * @description Collection mode used for these counts: 'master_set' (printing-level) or 'playset' (card-level).
-             * @default playset
-             */
-            collection_mode: string;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -834,14 +760,6 @@ export interface components {
              * @description Opaque long-lived token. Use with POST /auth/refresh to obtain a new access token.
              */
             refresh_token: string;
-        };
-        /** UpdatePreferencesRequest */
-        UpdatePreferencesRequest: {
-            /**
-             * Collection Mode
-             * @enum {string}
-             */
-            collection_mode: "master_set" | "playset";
         };
         /** UpsertItemRequest */
         UpsertItemRequest: {
@@ -881,11 +799,6 @@ export interface components {
              */
             is_admin: boolean;
             /**
-             * Collection Mode
-             * @description Collection tracking mode: 'master_set' or 'playset'.
-             */
-            collection_mode: string;
-            /**
              * Created At
              * Format: date-time
              * @description UTC timestamp when the account was created.
@@ -904,77 +817,6 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
-        };
-        /** WishlistCreate */
-        WishlistCreate: {
-            /**
-             * Name
-             * @description Display name for the wishlist.
-             */
-            name: string;
-            /** @description Filter criteria that define which missing printings this wishlist tracks. */
-            filter_json?: components["schemas"]["WishlistFilter"];
-        };
-        /** WishlistFilter */
-        WishlistFilter: {
-            /**
-             * Card Id
-             * @description Scope to printings of a specific card.
-             */
-            card_id?: string | null;
-            /**
-             * Set Id
-             * @description Scope to printings in a specific set.
-             */
-            set_id?: string | null;
-            /**
-             * Edition
-             * @description Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition.
-             */
-            edition?: string | null;
-            /**
-             * Foiling
-             * @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold.
-             */
-            foiling?: string | null;
-            /**
-             * Rarity
-             * @description Exact rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo.
-             */
-            rarity?: string | null;
-            /**
-             * Artists
-             * @description Substring match against the artists array (case-insensitive).
-             */
-            artists?: string | null;
-        };
-        /** WishlistOut */
-        WishlistOut: {
-            /**
-             * Id
-             * Format: uuid
-             * @description Unique wishlist identifier.
-             */
-            id: string;
-            /**
-             * Name
-             * @description Display name for the wishlist.
-             */
-            name: string;
-            /** @description Saved filter criteria. */
-            filter_json: components["schemas"]["WishlistFilter"];
-            /**
-             * Created At
-             * Format: date-time
-             * @description UTC timestamp when the wishlist was created.
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             * @description UTC timestamp of the last update.
-             */
-            updated_at: string;
         };
     };
     responses: never;
@@ -1163,46 +1005,11 @@ export interface operations {
             };
         };
     };
-    update_me_auth_me_patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdatePreferencesRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_sets_sets_get: {
         parameters: {
             query?: {
                 /** @description Filter by category: booster, deck, or promo. */
                 set_type?: string | null;
-                /** @description Override collection mode: 'master_set' or 'playset'. Defaults to authenticated user's saved preference, or 'playset'. */
-                collection_mode?: string | null;
             };
             header?: never;
             path?: never;
@@ -1567,148 +1374,6 @@ export interface operations {
                 };
             };
             /** @description One or more printing IDs were not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_missing_missing_get: {
-        parameters: {
-            query?: {
-                /** @description Scope to printings in a specific set. */
-                set_id?: string | null;
-                /** @description Scope to printings of a specific card. */
-                card_id?: string | null;
-                /** @description Edition code: A=Alpha, F=First, U=Unlimited, N=No specified edition. */
-                edition?: string | null;
-                /** @description Foiling code: S=Standard, R=Rainbow, C=Cold, G=Gold Cold. */
-                foiling?: string | null;
-                /** @description Exact rarity code: C=Common, R=Rare, M=Majestic, L=Legendary, F=Fabled, T=Token, P=Promo. */
-                rarity?: string | null;
-                /** @description Substring match against the artists array (case-insensitive). */
-                artists?: string | null;
-                /** @description Page number (1-based). */
-                page?: number;
-                /** @description Number of results per page (max 100). */
-                page_size?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PaginatedPrintings"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_wishlists_wishlists_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WishlistOut"][];
-                };
-            };
-        };
-    };
-    create_wishlist_wishlists_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["WishlistCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WishlistOut"];
-                };
-            };
-            /** @description Free-tier limit reached — delete the existing wishlist first. */
-            402: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_wishlist_wishlists__wishlist_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                wishlist_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Wishlist not found or belongs to a different user. */
             404: {
                 headers: {
                     [name: string]: unknown;

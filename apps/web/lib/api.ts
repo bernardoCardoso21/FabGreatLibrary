@@ -25,17 +25,6 @@ export interface PlaysetFilters {
   page_size?: number
 }
 
-export interface MissingFilters {
-  set_id?: string
-  card_id?: string
-  edition?: string
-  foiling?: string
-  rarity?: string
-  artists?: string
-  page?: number
-  page_size?: number
-}
-
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
 async function request<T>(
@@ -126,19 +115,4 @@ export function apiBulkApply(token: string, items: BulkItem[]): Promise<ItemResu
     { method: 'POST', body: JSON.stringify({ items }), headers: { 'Content-Type': 'application/json' } },
     token,
   )
-}
-
-// ── Missing ────────────────────────────────────────────────────────────────
-
-export function apiGetMissing(token: string, filters: MissingFilters = {}): Promise<PaginatedPrintings> {
-  const params = new URLSearchParams()
-  if (filters.set_id) params.set('set_id', filters.set_id)
-  if (filters.card_id) params.set('card_id', filters.card_id)
-  if (filters.edition) params.set('edition', filters.edition)
-  if (filters.foiling) params.set('foiling', filters.foiling)
-  if (filters.rarity) params.set('rarity', filters.rarity)
-  if (filters.artists) params.set('artists', filters.artists)
-  params.set('page', String(filters.page ?? 1))
-  params.set('page_size', String(filters.page_size ?? 20))
-  return request<PaginatedPrintings>(`/missing?${params}`, {}, token)
 }
