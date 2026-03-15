@@ -2,14 +2,12 @@
 Tests for domain invariants.
 
 1. owned_printings unique constraint  (user_id, printing_id)
-2. Wishlist free-tier max-1 enforcement in service layer
 """
 
 import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.db.models import Card, OwnedPrinting, Printing, Set, User
-from app.services.wishlist import WishlistLimitError, create_wishlist
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -88,22 +86,3 @@ class TestOwnedPrintingUniqueConstraint:
         db.add(OwnedPrinting(user_id=user.id, printing_id=standard.id, qty=1))
         db.add(OwnedPrinting(user_id=user.id, printing_id=rainbow.id, qty=1))
         await db.flush()  # should not raise
-
-
-# ── wishlist free-tier limit ───────────────────────────────────────────────────
-
-class TestWishlistServiceLimit:
-    async def test_first_wishlist_succeeds(self, db):
-        """A user with no wishlists can create one."""
-        user = await _make_user(db, "w1@test.local")
-        wishlist = await create_wishlist(db, user.id, "My Wants", {})
-        assert wishlist.id is not None
-        assert wishlist.name == "My Wants"
-
-    async def test_second_wishlist_raises_limit_error(self, db):
-        """A free-tier user cannot create a second wishlist."""
-        user = await _make_user(db, "w2@test.local")
-        await create_wishlist(db, user.id, "First", {})
-
-        with pytest.raises(WishlistLimitError):
-            await create_wishlist(db, user.id, "Second", {})

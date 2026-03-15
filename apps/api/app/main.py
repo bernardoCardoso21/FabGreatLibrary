@@ -8,7 +8,6 @@ from app.routers import collection as collection_router
 from app.routers import missing as missing_router
 from app.routers import search as search_router
 from app.routers import sets as sets_router
-from app.routers import wishlist as wishlist_router
 
 app = FastAPI(
     title="FabGreat API",
@@ -16,11 +15,11 @@ app = FastAPI(
 Flesh and Blood TCG collection tracker API.
 
 Browse the full card catalog (92 sets, 4 200+ cards, 14 000+ printings), track ownership
-down to foiling and edition, and manage saved wishlist filters.
+down to foiling and edition.
 
 ## Authentication
 
-Most catalog endpoints are public. Collection and wishlist endpoints require a **Bearer**
+Most catalog endpoints are public. Collection endpoints require a **Bearer**
 token obtained from `POST /auth/token` (login) or `POST /auth/register`.
 
 Refresh tokens are opaque and stored server-side. Call `POST /auth/refresh` to rotate
@@ -66,7 +65,6 @@ app.include_router(cards_router.router)
 app.include_router(search_router.router)
 app.include_router(collection_router.router)
 app.include_router(missing_router.router)
-app.include_router(wishlist_router.router)
 
 
 @app.get("/health")

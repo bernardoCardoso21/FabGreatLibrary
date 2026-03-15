@@ -8,7 +8,6 @@ sets            – FAB product sets (e.g. "Welcome to Rathe")
 cards           – abstract card concept (name, type, class, talent, pitch)
 printings       – one row per (card, set, edition, foiling) combination
 owned_printings – user ownership: (user, printing) → qty
-wishlists       – saved filter views; free tier capped at 1 per user
 refresh_tokens  – opaque refresh tokens for JWT auth
 
 Data source alignment (Strategy B)
@@ -70,9 +69,6 @@ class User(Base):
     )
 
     owned_printings: Mapped[list[OwnedPrinting]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    wishlists: Mapped[list[Wishlist]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     refresh_tokens: Mapped[list[RefreshToken]] = relationship(
@@ -228,34 +224,6 @@ class OwnedPrinting(Base):
 
     user: Mapped[User] = relationship(back_populates="owned_printings")
     printing: Mapped[Printing] = relationship(back_populates="owned_by")
-
-
-# ── wishlists ─────────────────────────────────────────────────────────────────
-
-class Wishlist(Base):
-    """
-    A saved filter view.  Free-tier users are limited to 1 wishlist;
-    this is enforced in the service layer (not a DB constraint).
-    """
-
-    __tablename__ = "wishlists"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=_uuid
-    )
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    filter_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=_now
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=_now, onupdate=_now
-    )
-
-    user: Mapped[User] = relationship(back_populates="wishlists")
 
 
 # ── refresh_tokens ────────────────────────────────────────────────────────────

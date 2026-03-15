@@ -13,8 +13,6 @@ export type PaginatedPrintings = components['schemas']['PaginatedPrintings']
 export type ItemResult       = components['schemas']['ItemResult']
 export type BulkAction       = components['schemas']['BulkAction']
 export type BulkItem         = components['schemas']['BulkItemRequest']
-export type WishlistFilter   = components['schemas']['WishlistFilter']
-export type WishlistOut      = components['schemas']['WishlistOut']
 export type PlaysetCardItem  = components['schemas']['PlaysetCardItem']
 export type PaginatedPlaysetCards = components['schemas']['PaginatedPlaysetCards']
 
@@ -143,26 +141,4 @@ export function apiGetMissing(token: string, filters: MissingFilters = {}): Prom
   params.set('page', String(filters.page ?? 1))
   params.set('page_size', String(filters.page_size ?? 20))
   return request<PaginatedPrintings>(`/missing?${params}`, {}, token)
-}
-
-// ── Wishlists ──────────────────────────────────────────────────────────────
-
-export function apiGetWishlists(token: string): Promise<WishlistOut[]> {
-  return request<WishlistOut[]>('/wishlists', {}, token)
-}
-
-export function apiCreateWishlist(
-  token: string,
-  name: string,
-  filter_json: WishlistFilter,
-): Promise<WishlistOut> {
-  return request<WishlistOut>(
-    '/wishlists',
-    { method: 'POST', body: JSON.stringify({ name, filter_json }), headers: { 'Content-Type': 'application/json' } },
-    token,
-  )
-}
-
-export function apiDeleteWishlist(token: string, id: string): Promise<void> {
-  return request<void>(`/wishlists/${id}`, { method: 'DELETE' }, token)
 }

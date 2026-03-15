@@ -1,18 +1,13 @@
 'use client'
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import Image from 'next/image'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
-  apiCreateWishlist,
-  apiDeleteWishlist,
   apiGetMissing,
   apiGetSets,
-  apiGetWishlists,
   type MissingFilters,
-  type WishlistFilter,
 } from '@/lib/api'
 import { useRequireAuth } from '@/lib/auth'
 
@@ -80,18 +75,12 @@ function RarityBadge({ code }: { code: string }) {
 const PAGE_SIZE = 20
 
 export default function MissingPage() {
-  const queryClient = useQueryClient()
   const token = useRequireAuth()
 
-  // Filter state
   const [setIdFilter, setSetIdFilter] = useState('')
   const [foilingFilter, setFoilingFilter] = useState('')
   const [rarityFilter, setRarityFilter] = useState('')
   const [page, setPage] = useState(1)
-
-  // Wishlist panel state
-  const [wishlistName, setWishlistName] = useState('')
-  const [wishlistError, setWishlistError] = useState('')
 
   const filters: MissingFilters = {
     page,
@@ -113,52 +102,6 @@ export default function MissingPage() {
     enabled: !!token,
   })
 
-  const wishlistsQuery = useQuery({
-    queryKey: ['wishlists'],
-    queryFn: () => apiGetWishlists(token!),
-    enabled: !!token,
-  })
-
-  const createWishlistMutation = useMutation({
-    mutationFn: ({ name, filter }: { name: string; filter: WishlistFilter }) =>
-      apiCreateWishlist(token!, name, filter),
-    onSuccess: () => {
-      setWishlistName('')
-      setWishlistError('')
-      queryClient.invalidateQueries({ queryKey: ['wishlists'] })
-    },
-    onError: (err: Error) => {
-      setWishlistError(err.message)
-    },
-  })
-
-  const deleteWishlistMutation = useMutation({
-    mutationFn: (id: string) => apiDeleteWishlist(token!, id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wishlists'] })
-    },
-  })
-
-  const wishlist = wishlistsQuery.data?.[0] ?? null
-
-  function loadWishlist() {
-    if (!wishlist) return
-    const f = wishlist.filter_json
-    setSetIdFilter(f.set_id ?? '')
-    setFoilingFilter(f.foiling ?? '')
-    setRarityFilter(f.rarity ?? '')
-    setPage(1)
-  }
-
-  function saveWishlist() {
-    if (!wishlistName.trim()) return
-    const filter: WishlistFilter = {}
-    if (setIdFilter) filter.set_id = setIdFilter
-    if (foilingFilter) filter.foiling = foilingFilter
-    if (rarityFilter) filter.rarity = rarityFilter
-    createWishlistMutation.mutate({ name: wishlistName.trim(), filter })
-  }
-
   function changeFilter(setter: (v: string) => void, value: string) {
     setter(value)
     setPage(1)
@@ -173,46 +116,6 @@ export default function MissingPage() {
   return (
     <main className="mx-auto max-w-7xl space-y-4 p-6">
       <h1 className="text-xl font-semibold">Missing Printings</h1>
-
-      {/* Wishlist panel */}
-      <div className="rounded-lg border bg-muted/30 p-4">
-        {wishlist ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium">Saved wishlist:</span>
-            <span className="text-sm">{wishlist.name}</span>
-            <Button size="sm" variant="outline" onClick={loadWishlist}>
-              Load filters
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => deleteWishlistMutation.mutate(wishlist.id)}
-              disabled={deleteWishlistMutation.isPending}
-            >
-              Delete
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3">
-            <Input
-              placeholder="Wishlist name…"
-              value={wishlistName}
-              onChange={e => setWishlistName(e.target.value)}
-              className="h-8 w-48"
-            />
-            <Button
-              size="sm"
-              onClick={saveWishlist}
-              disabled={!wishlistName.trim() || createWishlistMutation.isPending}
-            >
-              Save current filter
-            </Button>
-            {wishlistError && (
-              <span className="text-sm text-destructive">{wishlistError}</span>
-            )}
-          </div>
-        )}
-      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -274,7 +177,7 @@ export default function MissingPage() {
 
       {/* Table */}
       {missingQuery.isLoading ? (
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">Loading...</p>
       ) : missingQuery.error ? (
         <p className="text-destructive">Failed to load missing printings.</p>
       ) : items.length === 0 ? (
@@ -363,7 +266,7 @@ export default function MissingPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+            {(page - 1) * PAGE_SIZE + 1}--{Math.min(page * PAGE_SIZE, total)} of {total}
           </p>
           <div className="flex gap-2">
             <Button
