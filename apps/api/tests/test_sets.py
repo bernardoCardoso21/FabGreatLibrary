@@ -79,10 +79,10 @@ class TestGetSets:
         await _make_printing(db, set_, card, "CNT-001-S")
         await _make_printing(db, set_, card, "CNT-001-R", foiling="R")
 
-        resp = await client.get("/sets", params={"collection_mode": "master_set"})
+        resp = await client.get("/sets")
         assert resp.status_code == 200
         entry = next(s for s in resp.json() if s["code"] == "CNT")
-        assert entry["printing_count"] == 2
+        assert entry["printing_count"] == 1
 
     async def test_owned_count_is_none_when_unauthenticated(self, client: AsyncClient, db):
         await _make_set(db, "UNA", "Unauth Set")
@@ -94,16 +94,15 @@ class TestGetSets:
 
     async def test_owned_count_when_authenticated(self, client: AsyncClient, db):
         set_ = await _make_set(db, "OWN", "Owned Set")
-        card = await _make_card(db, name="Owned Card")
+        card = await _make_card(db, name="Owned Card", card_type="Action")
         printing = await _make_printing(db, set_, card, "OWN-001-S")
 
         user = await _make_user(db, "own@example.com")
-        db.add(OwnedPrinting(user_id=user.id, printing_id=printing.id, qty=2))
+        db.add(OwnedPrinting(user_id=user.id, printing_id=printing.id, qty=3))
         await db.flush()
 
         resp = await client.get(
             "/sets",
-            params={"collection_mode": "master_set"},
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
@@ -142,30 +141,6 @@ class TestGetSets:
         assert "BT2" in codes
         assert "PR2" in codes
 
-    async def test_playset_mode_counts_distinct_cards(self, client: AsyncClient, db):
-        set_ = await _make_set(db, "PLS", "Playset Set")
-        card = await _make_card(db, name="Playset Card", card_type="Action")
-        await _make_printing(db, set_, card, "PLS-001-S", foiling="S")
-        await _make_printing(db, set_, card, "PLS-001-R", foiling="R")
-
-        resp = await client.get("/sets", params={"collection_mode": "playset"})
-        assert resp.status_code == 200
-        entry = next(s for s in resp.json() if s["code"] == "PLS")
-        assert entry["printing_count"] == 1
-        assert entry["collection_mode"] == "playset"
-
-    async def test_master_set_mode_counts_all_printings(self, client: AsyncClient, db):
-        set_ = await _make_set(db, "MAS", "Master Set")
-        card = await _make_card(db, name="Master Card", card_type="Action")
-        await _make_printing(db, set_, card, "MAS-001-S", foiling="S")
-        await _make_printing(db, set_, card, "MAS-001-R", foiling="R")
-
-        resp = await client.get("/sets", params={"collection_mode": "master_set"})
-        assert resp.status_code == 200
-        entry = next(s for s in resp.json() if s["code"] == "MAS")
-        assert entry["printing_count"] == 2
-        assert entry["collection_mode"] == "master_set"
-
     async def test_playset_hero_target_is_1(self, client: AsyncClient, db):
         set_ = await _make_set(db, "PHR", "Playset Hero Set")
         hero = await _make_card(db, name="Ira", card_type="Hero", hero_class="Ninja")
@@ -177,7 +152,7 @@ class TestGetSets:
 
         resp = await client.get(
             "/sets",
-            params={"collection_mode": "playset"},
+
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
@@ -198,7 +173,7 @@ class TestGetSets:
 
         resp = await client.get(
             "/sets",
-            params={"collection_mode": "playset"},
+
             headers=_auth_header(user),
         )
         assert resp.status_code == 200
@@ -216,7 +191,7 @@ class TestGetSets:
 
         resp = await client.get(
             "/sets",
-            params={"collection_mode": "playset"},
+
             headers=_auth_header(user),
         )
         assert resp.status_code == 200

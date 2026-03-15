@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { clearToken, useTokenValue } from '@/lib/auth'
 import { toggleTheme, useTheme } from '@/lib/theme'
@@ -42,6 +43,7 @@ export function Navbar() {
           </Button>
           {isLoggedIn ? (
             <>
+              <Badge className="bg-green-600 text-white border-green-600">Member</Badge>
               <Link href="/sets" className="text-sm text-muted-foreground hover:text-foreground">
                 My Collection
               </Link>
@@ -54,9 +56,6 @@ export function Navbar() {
             </>
           ) : (
             <>
-              <Link href="/sets" className="text-sm text-muted-foreground hover:text-foreground">
-                Browse Sets
-              </Link>
               <Link href="/login">
                 <Button variant="ghost" size="sm">Log in</Button>
               </Link>

@@ -238,20 +238,6 @@ class TestBulkApply:
         assert resp.status_code == 200
         assert resp.json()[0]["qty"] == 3
 
-    async def test_mark_playset_sets_qty_3(self, client: AsyncClient, db):
-        user = await _make_user(db, "bps@example.com")
-        set_ = await _make_set(db, "BP1")
-        card = await _make_card(db, "Playset Card")
-        printing = await _make_printing(db, set_, card, "BP1-001-S")
-
-        resp = await client.post(
-            "/collection/bulk",
-            json={"items": [{"printing_id": str(printing.id), "action": "mark_playset"}]},
-            headers=_auth(user),
-        )
-        assert resp.status_code == 200
-        assert resp.json()[0]["qty"] == 3
-
     async def test_clear_deletes_row(self, client: AsyncClient, db):
         user = await _make_user(db, "bclr@example.com")
         set_ = await _make_set(db, "BC1")
@@ -310,7 +296,7 @@ class TestBulkApply:
             "/collection/bulk",
             json={
                 "items": [
-                    {"printing_id": str(printing.id), "action": "mark_playset"},
+                    {"printing_id": str(printing.id), "action": "increment"},
                     {"printing_id": str(uuid.uuid4()), "action": "increment"},
                 ]
             },
@@ -333,7 +319,7 @@ class TestBulkApply:
             "/collection/bulk",
             json={
                 "items": [
-                    {"printing_id": str(p1.id), "action": "mark_playset"},
+                    {"printing_id": str(p1.id), "action": "set_qty", "qty": 3},
                     {"printing_id": str(p2.id), "action": "increment"},
                 ]
             },

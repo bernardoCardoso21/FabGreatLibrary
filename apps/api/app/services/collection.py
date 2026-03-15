@@ -203,9 +203,6 @@ async def _apply_action(
     if action == "set_qty":
         return await upsert_item(session, user_id, printing_id, qty)  # type: ignore[arg-type]
 
-    if action == "mark_playset":
-        return await upsert_item(session, user_id, printing_id, 3)
-
     if action == "clear":
         return await upsert_item(session, user_id, printing_id, 0)
 
@@ -222,7 +219,6 @@ async def bulk_apply(
     Supported actions per item:
     - ``increment``: Add 1 to the current qty (creates the row at qty=1 if absent).
     - ``set_qty``: Set qty to the provided value; qty=0 deletes the row.
-    - ``mark_playset``: Set qty to 3 (standard playset size).
     - ``clear``: Delete the row (equivalent to set_qty=0).
 
     Atomicity is guaranteed because all actions run inside the same database

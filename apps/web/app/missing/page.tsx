@@ -2,8 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -15,7 +14,7 @@ import {
   type MissingFilters,
   type WishlistFilter,
 } from '@/lib/api'
-import { useTokenValue } from '@/lib/auth'
+import { useRequireAuth } from '@/lib/auth'
 
 // ── Display helpers ────────────────────────────────────────────────────────────
 
@@ -81,16 +80,8 @@ function RarityBadge({ code }: { code: string }) {
 const PAGE_SIZE = 20
 
 export default function MissingPage() {
-  const router = useRouter()
   const queryClient = useQueryClient()
-
-  const token = useTokenValue()
-
-  useEffect(() => {
-    if (token === null) {
-      router.push('/login')
-    }
-  }, [token, router])
+  const token = useRequireAuth()
 
   // Filter state
   const [setIdFilter, setSetIdFilter] = useState('')

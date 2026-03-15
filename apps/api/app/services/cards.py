@@ -14,22 +14,17 @@ async def list_sets_with_counts(
     session: AsyncSession,
     user_id: uuid.UUID | None = None,
     set_type: str | None = None,
-    collection_mode: str = "playset",
 ) -> list[dict]:
-    """Return sets ordered by name, annotated with completion counts.
+    """Return sets ordered by name, annotated with playset completion counts.
 
-    Supports two collection modes:
-
-    - **master_set**: denominator = total printings, numerator = distinct owned printings.
-    - **playset**: denominator = distinct cards in set, numerator = cards where the user
-      owns enough copies (1 for Heroes, 3 for everything else).
+    Denominator = distinct cards in set, numerator = cards where the user
+    owns enough copies (1 for Heroes, 3 for everything else).
 
     Args:
         session: Active async database session.
         user_id: If provided, each entry includes ``owned_count`` for this user.
             Pass None for unauthenticated callers — ``owned_count`` will be None.
         set_type: If provided, filter to sets of this category (booster, deck, promo).
-        collection_mode: ``"master_set"`` or ``"playset"``. Defaults to ``"playset"``.
 
     Returns:
         List of dicts with keys ``set`` (Set ORM object), ``printing_count`` (int),
@@ -45,67 +40,47 @@ async def list_sets_with_counts(
 
     set_ids = [s.id for s in sets]
 
-    if collection_mode == "playset":
-        count_rows = (
-            await session.execute(
-                select(
-                    Printing.set_id,
-                    func.count(func.distinct(Printing.card_id)).label("cnt"),
-                )
-                .where(Printing.set_id.in_(set_ids))
-                .group_by(Printing.set_id)
+    count_rows = (
+        await session.execute(
+            select(
+                Printing.set_id,
+                func.count(func.distinct(Printing.card_id)).label("cnt"),
             )
-        ).all()
-    else:
-        count_rows = (
-            await session.execute(
-                select(Printing.set_id, func.count(Printing.id).label("cnt"))
-                .where(Printing.set_id.in_(set_ids))
-                .group_by(Printing.set_id)
-            )
-        ).all()
+            .where(Printing.set_id.in_(set_ids))
+            .group_by(Printing.set_id)
+        )
+    ).all()
     count_map = {row.set_id: row.cnt for row in count_rows}
 
     owned_map: dict = {}
     if user_id is not None:
-        if collection_mode == "playset":
-            sub = (
-                select(
-                    Printing.set_id,
-                    Printing.card_id,
-                    Card.card_type,
-                    func.sum(OwnedPrinting.qty).label("total_qty"),
-                )
-                .join(Card, Card.id == Printing.card_id)
-                .join(OwnedPrinting, OwnedPrinting.printing_id == Printing.id)
-                .where(OwnedPrinting.user_id == user_id)
-                .where(Printing.set_id.in_(set_ids))
-                .group_by(Printing.set_id, Printing.card_id, Card.card_type)
-            ).subquery()
+        sub = (
+            select(
+                Printing.set_id,
+                Printing.card_id,
+                Card.card_type,
+                func.sum(OwnedPrinting.qty).label("total_qty"),
+            )
+            .join(Card, Card.id == Printing.card_id)
+            .join(OwnedPrinting, OwnedPrinting.printing_id == Printing.id)
+            .where(OwnedPrinting.user_id == user_id)
+            .where(Printing.set_id.in_(set_ids))
+            .group_by(Printing.set_id, Printing.card_id, Card.card_type)
+        ).subquery()
 
-            owned_rows = (
-                await session.execute(
-                    select(
-                        sub.c.set_id,
-                        func.count().label("cnt"),
-                    ).where(
-                        case(
-                            (sub.c.card_type.like("Hero%"), sub.c.total_qty >= 1),
-                            else_=(sub.c.total_qty >= 3),
-                        )
-                    ).group_by(sub.c.set_id)
-                )
-            ).all()
-        else:
-            owned_rows = (
-                await session.execute(
-                    select(Printing.set_id, func.count(OwnedPrinting.id).label("cnt"))
-                    .join(OwnedPrinting, OwnedPrinting.printing_id == Printing.id)
-                    .where(OwnedPrinting.user_id == user_id)
-                    .where(Printing.set_id.in_(set_ids))
-                    .group_by(Printing.set_id)
-                )
-            ).all()
+        owned_rows = (
+            await session.execute(
+                select(
+                    sub.c.set_id,
+                    func.count().label("cnt"),
+                ).where(
+                    case(
+                        (sub.c.card_type.like("Hero%"), sub.c.total_qty >= 1),
+                        else_=(sub.c.total_qty >= 3),
+                    )
+                ).group_by(sub.c.set_id)
+            )
+        ).all()
         owned_map = {row.set_id: row.cnt for row in owned_rows}
 
     return [

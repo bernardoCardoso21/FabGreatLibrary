@@ -4,7 +4,6 @@ Pydantic schemas for auth endpoints.
 
 import uuid
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -31,9 +30,4 @@ class UserResponse(BaseModel):
     email: str = Field(description="The user's email address.")
     is_active: bool = Field(description="False if the account has been disabled by an administrator.")
     is_admin: bool = Field(description="True if the user has administrative privileges.")
-    collection_mode: str = Field(description="Collection tracking mode: 'master_set' or 'playset'.")
     created_at: datetime = Field(description="UTC timestamp when the account was created.")
-
-
-class UpdatePreferencesRequest(BaseModel):
-    collection_mode: Literal["master_set", "playset"]

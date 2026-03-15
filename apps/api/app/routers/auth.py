@@ -19,7 +19,6 @@ from app.schemas.auth import (
     RefreshRequest,
     RegisterRequest,
     TokenResponse,
-    UpdatePreferencesRequest,
     UserResponse,
 )
 from app.services import auth as auth_svc
@@ -27,7 +26,6 @@ from app.services.user import (
     DuplicateEmailError,
     create_user,
     get_user_by_email,
-    update_collection_mode,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -134,19 +132,3 @@ async def logout(
 )
 async def me(current_user: User = Depends(get_current_user)) -> UserResponse:
     return UserResponse.model_validate(current_user)
-
-
-@router.patch(
-    "/me",
-    response_model=UserResponse,
-    summary="Update user preferences",
-    description="Update the authenticated user's preferences (e.g. collection tracking mode).",
-)
-async def update_me(
-    body: UpdatePreferencesRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> UserResponse:
-    user = await update_collection_mode(db, current_user, body.collection_mode)
-    await db.commit()
-    return UserResponse.model_validate(user)

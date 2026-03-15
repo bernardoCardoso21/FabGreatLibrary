@@ -1,13 +1,12 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { apiGetSets, apiUpdateMe, type SetSummary } from '@/lib/api'
-import { useTokenValue } from '@/lib/auth'
-import { useCollectionMode, setCollectionMode } from '@/lib/collection-mode'
+import { apiGetSets, type SetSummary } from '@/lib/api'
+import { useRequireAuth } from '@/lib/auth'
 
 const CATEGORIES = [
   { key: 'booster', label: 'Booster Sets', description: 'Main expansion sets' },
@@ -15,43 +14,7 @@ const CATEGORIES = [
   { key: 'promo', label: 'Promos', description: 'Promotional and prize cards' },
 ] as const
 
-const MODES = [
-  { key: 'playset', label: 'Playset' },
-  { key: 'master_set', label: 'Master Set' },
-] as const
-
-function CollectionModeToggle({ token }: { token: string }) {
-  const mode = useCollectionMode()
-  const queryClient = useQueryClient()
-
-  function handleToggle(newMode: 'master_set' | 'playset') {
-    if (newMode === mode) return
-    setCollectionMode(newMode)
-    apiUpdateMe(token, { collection_mode: newMode }).catch(() => {})
-    queryClient.invalidateQueries({ queryKey: ['sets'] })
-  }
-
-  return (
-    <div className="inline-flex rounded-lg border bg-muted p-0.5">
-      {MODES.map(m => (
-        <button
-          key={m.key}
-          onClick={() => handleToggle(m.key)}
-          className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-            mode === m.key
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {m.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function CompletionBar({ set, mode }: { set: SetSummary; mode: string }) {
-  const label = mode === 'playset' ? 'cards' : 'printings'
+function CompletionBar({ set }: { set: SetSummary }) {
   const pct = set.printing_count > 0
     ? Math.min(100, ((set.owned_count ?? 0) / set.printing_count) * 100)
     : 0
@@ -65,7 +28,7 @@ function CompletionBar({ set, mode }: { set: SetSummary; mode: string }) {
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        {set.owned_count} / {set.printing_count} {label}
+        {set.owned_count} / {set.printing_count} cards
       </p>
     </div>
   )
@@ -103,14 +66,12 @@ function CategoryPicker({ sets }: { sets: SetSummary[] }) {
   )
 }
 
-function SetGrid({ type, token }: { type: string; token: string | null }) {
+function SetGrid({ type, token }: { type: string; token: string }) {
   const label = CATEGORIES.find(c => c.key === type)?.label ?? 'Sets'
-  const collectionMode = useCollectionMode()
-  const mode = token ? collectionMode : undefined
 
   const { data: sets, isLoading, error } = useQuery<SetSummary[]>({
-    queryKey: ['sets', token, type, mode],
-    queryFn: () => apiGetSets(token, type, mode),
+    queryKey: ['sets', token, type],
+    queryFn: () => apiGetSets(token, type),
   })
 
   if (isLoading) {
@@ -138,10 +99,7 @@ function SetGrid({ type, token }: { type: string; token: string | null }) {
           </Link>
           <h1 className="text-3xl font-bold">{label}</h1>
         </div>
-        <div className="flex items-center gap-4">
-          {token && <CollectionModeToggle token={token} />}
-          <p className="text-sm text-muted-foreground">{sets?.length ?? 0} sets</p>
-        </div>
+        <p className="text-sm text-muted-foreground">{sets?.length ?? 0} sets</p>
       </div>
       {sets?.length === 0 ? (
         <div className="rounded-lg border border-dashed py-12 text-center">
@@ -162,10 +120,10 @@ function SetGrid({ type, token }: { type: string; token: string | null }) {
                 </div>
               </CardHeader>
               <CardContent>
-                {token && set.owned_count !== null ? (
-                  <CompletionBar set={set} mode={mode ?? 'playset'} />
+                {set.owned_count !== null ? (
+                  <CompletionBar set={set} />
                 ) : (
-                  <p className="text-xs text-muted-foreground">{set.printing_count} printings</p>
+                  <p className="text-xs text-muted-foreground">{set.printing_count} cards</p>
                 )}
               </CardContent>
             </Card>
@@ -178,15 +136,18 @@ function SetGrid({ type, token }: { type: string; token: string | null }) {
 }
 
 function SetsPageInner() {
-  const token = useTokenValue()
+  const token = useRequireAuth()
   const searchParams = useSearchParams()
+
   const type = searchParams.get('type')
 
   const { data: allSets, isLoading, error } = useQuery<SetSummary[]>({
     queryKey: ['sets', token],
     queryFn: () => apiGetSets(token),
-    enabled: !type,
+    enabled: !type && !!token,
   })
+
+  if (!token) return null
 
   if (type) {
     return <SetGrid type={type} token={token} />

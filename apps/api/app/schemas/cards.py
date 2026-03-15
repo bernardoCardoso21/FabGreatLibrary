@@ -26,10 +26,6 @@ class SetSummary(BaseModel):
         description="Number of those printings the authenticated user owns at least one copy of. "
                     "Null when the request is unauthenticated."
     )
-    collection_mode: str = Field(
-        default="playset",
-        description="Collection mode used for these counts: 'master_set' (printing-level) or 'playset' (card-level).",
-    )
 
 
 class CardListItem(BaseModel):
