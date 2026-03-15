@@ -33,7 +33,7 @@ test.describe('auth', () => {
     await page.goto('/sets')
     await page.getByRole('button', { name: 'Log out' }).click()
 
-    await expect(page).toHaveURL('/')
-    await expect(page.getByRole('button', { name: 'Log in' })).toBeVisible()
+    await expect(page).toHaveURL('/login')
+    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
   })
 })
