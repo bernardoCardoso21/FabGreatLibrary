@@ -101,7 +101,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update user preferences
+         * @description Update the authenticated user's preferences (e.g. collection tracking mode).
+         */
+        patch: operations["update_me_auth_me_patch"];
         trace?: never;
     };
     "/sets": {
@@ -136,6 +140,26 @@ export interface paths {
          * @description Return a paginated list of printings belonging to the given set, with optional filters.
          */
         get: operations["get_set_printings_sets__set_id__printings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sets/{set_id}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List cards in a set (playset mode)
+         * @description Return cards in the set grouped by card (not by printing). Each row has aggregated ownership and a target qty (1 for Heroes, 3 for others).
+         */
+        get: operations["get_set_cards_sets__set_id__cards_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -377,7 +401,7 @@ export interface components {
          * BulkAction
          * @enum {string}
          */
-        BulkAction: "set_qty" | "increment" | "mark_playset" | "clear";
+        BulkAction: "set_qty" | "increment" | "decrement" | "mark_playset" | "clear";
         /** BulkItemRequest */
         BulkItemRequest: {
             /**
@@ -386,7 +410,7 @@ export interface components {
              * @description ID of the printing to act on.
              */
             printing_id: string;
-            /** @description Action to perform: 'set_qty' sets an exact quantity (requires qty); 'increment' adds 1 to the current quantity; 'mark_playset' sets quantity to 3; 'clear' removes the printing from the collection. */
+            /** @description Action to perform: 'set_qty' sets an exact quantity (requires qty); 'increment' adds 1 to the current quantity; 'decrement' subtracts 1 (removes if qty reaches 0); 'mark_playset' sets quantity to 3; 'clear' removes the printing from the collection. */
             action: components["schemas"]["BulkAction"];
             /**
              * Qty
@@ -514,6 +538,29 @@ export interface components {
              */
             page_size: number;
         };
+        /** PaginatedPlaysetCards */
+        PaginatedPlaysetCards: {
+            /**
+             * Items
+             * @description Cards on the current page.
+             */
+            items: components["schemas"]["PlaysetCardItem"][];
+            /**
+             * Total
+             * @description Total number of cards matching the current filters.
+             */
+            total: number;
+            /**
+             * Page
+             * @description Current page number (1-based).
+             */
+            page: number;
+            /**
+             * Page Size
+             * @description Number of items per page.
+             */
+            page_size: number;
+        };
         /** PaginatedPrintings */
         PaginatedPrintings: {
             /**
@@ -536,6 +583,68 @@ export interface components {
              * @description Number of items per page.
              */
             page_size: number;
+        };
+        /**
+         * PlaysetCardItem
+         * @description Card-level row for playset mode — aggregated ownership across all printings.
+         */
+        PlaysetCardItem: {
+            /**
+             * Id
+             * Format: uuid
+             * @description Unique card identifier.
+             */
+            id: string;
+            /**
+             * Name
+             * @description Card name.
+             */
+            name: string;
+            /**
+             * Card Type
+             * @description Card type text.
+             */
+            card_type: string;
+            /**
+             * Hero Class
+             * @description Hero class (e.g. 'Ninja'). Null for generic cards.
+             */
+            hero_class: string | null;
+            /**
+             * Talent
+             * @description Talent affinity. Null if none.
+             */
+            talent: string | null;
+            /**
+             * Pitch
+             * @description Pitch value (1-3). Null for non-pitchable cards.
+             */
+            pitch: number | null;
+            /**
+             * Rarity
+             * @description Rarity code of the first printing in this set.
+             */
+            rarity: string;
+            /**
+             * Image Url
+             * @description Image URL from the first printing in this set.
+             */
+            image_url: string | null;
+            /**
+             * Target
+             * @description Number of copies needed: 1 for Heroes, 3 for everything else.
+             */
+            target: number;
+            /**
+             * Owned Qty
+             * @description Total copies owned across all printings. Null when unauthenticated.
+             */
+            owned_qty: number | null;
+            /**
+             * Default Printing Id
+             * @description UUID of a representative printing (for +1 upsert).
+             */
+            default_printing_id: string;
         };
         /** PrintingOut */
         PrintingOut: {
@@ -700,6 +809,12 @@ export interface components {
              * @description Number of those printings the authenticated user owns at least one copy of. Null when the request is unauthenticated.
              */
             owned_count: number | null;
+            /**
+             * Collection Mode
+             * @description Collection mode used for these counts: 'master_set' (printing-level) or 'playset' (card-level).
+             * @default playset
+             */
+            collection_mode: string;
         };
         /** TokenResponse */
         TokenResponse: {
@@ -719,6 +834,14 @@ export interface components {
              * @description Opaque long-lived token. Use with POST /auth/refresh to obtain a new access token.
              */
             refresh_token: string;
+        };
+        /** UpdatePreferencesRequest */
+        UpdatePreferencesRequest: {
+            /**
+             * Collection Mode
+             * @enum {string}
+             */
+            collection_mode: "master_set" | "playset";
         };
         /** UpsertItemRequest */
         UpsertItemRequest: {
@@ -757,6 +880,11 @@ export interface components {
              * @description True if the user has administrative privileges.
              */
             is_admin: boolean;
+            /**
+             * Collection Mode
+             * @description Collection tracking mode: 'master_set' or 'playset'.
+             */
+            collection_mode: string;
             /**
              * Created At
              * Format: date-time
@@ -1035,11 +1163,46 @@ export interface operations {
             };
         };
     };
+    update_me_auth_me_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_sets_sets_get: {
         parameters: {
             query?: {
                 /** @description Filter by category: booster, deck, or promo. */
                 set_type?: string | null;
+                /** @description Override collection mode: 'master_set' or 'playset'. Defaults to authenticated user's saved preference, or 'playset'. */
+                collection_mode?: string | null;
             };
             header?: never;
             path?: never;
@@ -1104,6 +1267,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedPrintings"];
+                };
+            };
+            /** @description Set not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_set_cards_sets__set_id__cards_get: {
+        parameters: {
+            query?: {
+                /** @description Partial card name search (case-insensitive). */
+                q?: string | null;
+                /** @description Exact rarity code. */
+                rarity?: string | null;
+                /** @description Filter by hero class. */
+                hero_class?: string | null;
+                /** @description Filter by talent. */
+                talent?: string | null;
+                /** @description Partial match on card type text. */
+                card_type?: string | null;
+                /** @description Page number (1-based). */
+                page?: number;
+                /** @description Number of results per page (max 100). */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPlaysetCards"];
                 };
             };
             /** @description Set not found. */

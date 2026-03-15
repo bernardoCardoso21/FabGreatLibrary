@@ -26,6 +26,10 @@ class SetSummary(BaseModel):
         description="Number of those printings the authenticated user owns at least one copy of. "
                     "Null when the request is unauthenticated."
     )
+    collection_mode: str = Field(
+        default="playset",
+        description="Collection mode used for these counts: 'master_set' (printing-level) or 'playset' (card-level).",
+    )
 
 
 class CardListItem(BaseModel):
@@ -84,6 +88,29 @@ class CardDetail(BaseModel):
     talent: str | None
     pitch: int | None
     printings: list[PrintingOut]
+
+
+class PlaysetCardItem(BaseModel):
+    """Card-level row for playset mode — aggregated ownership across all printings."""
+
+    id: uuid.UUID = Field(description="Unique card identifier.")
+    name: str = Field(description="Card name.")
+    card_type: str = Field(description="Card type text.")
+    hero_class: str | None = Field(description="Hero class (e.g. 'Ninja'). Null for generic cards.")
+    talent: str | None = Field(description="Talent affinity. Null if none.")
+    pitch: int | None = Field(description="Pitch value (1-3). Null for non-pitchable cards.")
+    rarity: str = Field(description="Rarity code of the first printing in this set.")
+    image_url: str | None = Field(description="Image URL from the first printing in this set.")
+    target: int = Field(description="Number of copies needed: 1 for Heroes, 3 for everything else.")
+    owned_qty: int | None = Field(description="Total copies owned across all printings. Null when unauthenticated.")
+    default_printing_id: str = Field(description="UUID of a representative printing (for +1 upsert).")
+
+
+class PaginatedPlaysetCards(BaseModel):
+    items: list[PlaysetCardItem] = Field(description="Cards on the current page.")
+    total: int = Field(description="Total number of cards matching the current filters.")
+    page: int = Field(description="Current page number (1-based).")
+    page_size: int = Field(description="Number of items per page.")
 
 
 class PaginatedCards(BaseModel):

@@ -48,3 +48,21 @@ async def create_user(session: AsyncSession, email: str, password: str) -> User:
     session.add(user)
     await session.flush()
     return user
+
+
+async def update_collection_mode(
+    session: AsyncSession, user: User, mode: str
+) -> User:
+    """Update the user's collection tracking mode.
+
+    Args:
+        session: Active async database session.
+        user: The user whose preference to update.
+        mode: Either 'master_set' or 'playset'.
+
+    Returns:
+        The updated User (flushed but not yet committed).
+    """
+    user.collection_mode = mode
+    await session.flush()
+    return user

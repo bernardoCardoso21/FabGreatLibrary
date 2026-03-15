@@ -188,6 +188,18 @@ async def _apply_action(
         new_qty = (existing.qty if existing else 0) + 1
         return await upsert_item(session, user_id, printing_id, new_qty)
 
+    if action == "decrement":
+        existing = (
+            await session.execute(
+                select(OwnedPrinting).where(
+                    OwnedPrinting.user_id == user_id,
+                    OwnedPrinting.printing_id == printing_id,
+                )
+            )
+        ).scalar_one_or_none()
+        new_qty = max(0, (existing.qty if existing else 0) - 1)
+        return await upsert_item(session, user_id, printing_id, new_qty)
+
     if action == "set_qty":
         return await upsert_item(session, user_id, printing_id, qty)  # type: ignore[arg-type]
 

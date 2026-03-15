@@ -16,12 +16,22 @@ export type BulkAction       = components['schemas']['BulkAction']
 export type BulkItem         = components['schemas']['BulkItemRequest']
 export type WishlistFilter   = components['schemas']['WishlistFilter']
 export type WishlistOut      = components['schemas']['WishlistOut']
+export type UpdatePreferencesRequest = components['schemas']['UpdatePreferencesRequest']
+export type PlaysetCardItem  = components['schemas']['PlaysetCardItem']
+export type PaginatedPlaysetCards = components['schemas']['PaginatedPlaysetCards']
 
 // ── Frontend-only query param groupings (not backend schemas) ─────────────────
 
 export interface PrintingFilters {
   q?: string
   foiling?: string
+  rarity?: string
+  page?: number
+  page_size?: number
+}
+
+export interface PlaysetFilters {
+  q?: string
   rarity?: string
   page?: number
   page_size?: number
@@ -81,9 +91,27 @@ export function apiRegister(email: string, password: string): Promise<TokenRespo
 
 // ── Sets ──────────────────────────────────────────────────────────────────────
 
-export function apiGetSets(token?: string | null, setType?: string): Promise<SetSummary[]> {
-  const params = setType ? `?set_type=${setType}` : ''
-  return request<SetSummary[]>(`/sets${params}`, {}, token)
+export function apiGetSets(
+  token?: string | null,
+  setType?: string,
+  collectionMode?: string,
+): Promise<SetSummary[]> {
+  const params = new URLSearchParams()
+  if (setType) params.set('set_type', setType)
+  if (collectionMode) params.set('collection_mode', collectionMode)
+  const qs = params.toString()
+  return request<SetSummary[]>(`/sets${qs ? `?${qs}` : ''}`, {}, token)
+}
+
+export function apiUpdateMe(
+  token: string,
+  body: UpdatePreferencesRequest,
+): Promise<UserResponse> {
+  return request<UserResponse>('/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  }, token)
 }
 
 export function apiGetSetPrintings(
@@ -97,6 +125,19 @@ export function apiGetSetPrintings(
   params.set('page', String(filters.page ?? 1))
   params.set('page_size', String(filters.page_size ?? 20))
   return request<PaginatedPrintings>(`/sets/${setId}/printings?${params}`)
+}
+
+export function apiGetSetCards(
+  setId: string,
+  filters: PlaysetFilters = {},
+  token?: string | null,
+): Promise<PaginatedPlaysetCards> {
+  const params = new URLSearchParams()
+  if (filters.q) params.set('q', filters.q)
+  if (filters.rarity) params.set('rarity', filters.rarity)
+  params.set('page', String(filters.page ?? 1))
+  params.set('page_size', String(filters.page_size ?? 20))
+  return request<PaginatedPlaysetCards>(`/sets/${setId}/cards?${params}`, {}, token)
 }
 
 // ── Collection ────────────────────────────────────────────────────────────────

@@ -139,3 +139,45 @@ class TestMe:
             "/auth/me", headers={"Authorization": "Bearer garbage"}
         )
         assert resp.status_code == 401
+
+    async def test_includes_collection_mode_default(self, client: AsyncClient):
+        tokens = await _register(client, "mode@example.com")
+        resp = await client.get(
+            "/auth/me",
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["collection_mode"] == "playset"
+
+
+# ── PATCH /auth/me ───────────────────────────────────────────────────────────
+
+class TestUpdateMe:
+    async def test_update_collection_mode(self, client: AsyncClient):
+        tokens = await _register(client, "patch@example.com")
+        headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+        resp = await client.patch(
+            "/auth/me",
+            json={"collection_mode": "master_set"},
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["collection_mode"] == "master_set"
+
+        resp = await client.get("/auth/me", headers=headers)
+        assert resp.json()["collection_mode"] == "master_set"
+
+    async def test_invalid_mode_returns_422(self, client: AsyncClient):
+        tokens = await _register(client, "bad@example.com")
+        resp = await client.patch(
+            "/auth/me",
+            json={"collection_mode": "invalid"},
+            headers={"Authorization": f"Bearer {tokens['access_token']}"},
+        )
+        assert resp.status_code == 422
+
+    async def test_unauthenticated_returns_401(self, client: AsyncClient):
+        resp = await client.patch(
+            "/auth/me", json={"collection_mode": "playset"}
+        )
+        assert resp.status_code == 401
